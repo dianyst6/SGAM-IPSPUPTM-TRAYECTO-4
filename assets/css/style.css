@@ -1,0 +1,461 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+::after,
+::before {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden; /* Previene márgenes blancos horizontales */
+    width: 100%;
+    font-family: 'Poppins', sans-serif;
+    background-color: #f1f5f9; /* Color de fondo claro */
+    font-size: 14px;
+}
+
+/* --- Scrollbar Personalizado Global --- */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #062974;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #0e3791;
+}
+
+.wrapper {
+    display: flex;
+    flex-wrap: nowrap; /* Evita que los elementos secundarios se desborden */
+    max-width: 100%;
+    overflow-x: hidden; /* Previene desbordamientos horizontales */
+}
+
+.main {
+     min-height: 100vh;
+    width: calc(100% - 240px); /* Ajusta el ancho al sidebar */
+    margin-left: 240px; /* Margen igual al ancho del sidebar */
+    overflow-x: auto;
+    transition: margin-left 0.35s ease-in-out, width 0.35s ease-in-out;
+    background-color: #f1f5f9;
+    padding: 25px;
+
+    box-sizing: border-box;
+    margin-top: 70px;
+    flex: 1;
+
+}
+
+
+
+.main.expand {
+    margin-left: 240px; /* Margen cuando el sidebar está expandido */
+    width: calc(100% - 240px); /* Ancho restante cuando el sidebar está expandido */
+}
+
+.sidebar-logo {
+    margin: auto 0;
+}
+
+.sidebar-logo a {
+    color: #FFF;
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+.sidebar-logo .logo-img {
+    background-color: transparent;
+    color: #FFF;
+    max-width: 100px; /* Ajusta el tamaño máximo de la imagen */
+    height: auto;
+}
+
+#sidebar:not(.expand) .sidebar-logo,
+#sidebar:not(.expand) a.sidebar-link span {
+    display: none;
+}
+
+.sidebar-nav {
+    padding: 2rem 0;
+    flex: 1 1 auto;
+}
+
+a.sidebar-link {
+    padding: .625rem 1.625rem;
+    color: #FFF;
+    display: block;
+    font-size: 1rem; /* Ajusta el tamaño del texto */
+    white-space: nowrap;
+    border-left: 3px solid transparent;
+}
+
+.sidebar-link i {
+    font-size: 1.5rem; /* Tamaño de íconos reducido a 1.5rem */
+    margin-right: 1rem; /* Espacio entre ícono y texto */
+    color: #FFF; /* Íconos blancos */
+}
+
+a.sidebar-link:hover {
+    background-color: rgba(255, 255, 255, .075);
+    border-left: 3px solid #3b7ddd;
+}
+
+.sidebar-item {
+    position: relative;
+    font-size: 2rem;
+}
+
+.toggle-btn {
+    margin-top: 6px;
+    background-color: transparent;
+    cursor: pointer;
+    border: 0;
+    padding: 1rem 1.5rem;
+    font-size: 1.5rem;
+    color: #fff;
+}
+
+.toggle-btn i {
+    font-size: 2rem; /* Ícono del toggle más grande */
+    color: #FFF;
+}
+
+/* Estilo unificado para el contenedor de tablas */
+.table-responsive {
+    max-width: 100%;
+    overflow-x: auto; /* Permite desplazamiento horizontal en pantallas pequeñas */
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+    margin-top: 20px; /* Espacio arriba del contenedor, no de la tabla */
+}
+
+/* Forzar que la tabla no tenga márgenes internos que dejen espacios blancos */
+.table-responsive table {
+    margin: 0 !important;
+    width: 100%;
+}
+
+
+img {
+    max-width: 100%; /* Ajusta imágenes grandes */
+    height: auto;
+}
+
+.main, .table {
+    word-wrap: break-word; /* Ajusta texto largo */
+    word-break: break-word; /* Maneja palabras largas */
+}
+
+/* Alineación global de tablas: Todo centrado (Cabeceras y Datos) */
+.table th, .table td {
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+/* Cambiar cabeceras a azul corporativo */
+.table thead, .table-dark {
+    --bs-table-bg: #0e213d !important;
+    --bs-table-color: #ffffff !important;
+    background-color: #0e213d !important;
+    color: #ffffff !important;
+}
+
+
+
+
+/* --- Reglas Personalizadas para el Header Fijo y Modal --- */
+.modal {
+    z-index: 1055 !important; /* Asegúrate de que el modal esté encima del header fijo */
+}
+
+.navbar.fixed-top {
+    z-index: 1030; /* Header por debajo del modal */
+}
+.navbar-logo img {
+    max-width: 150px; /* Ajusta el tamaño máximo de la imagen del logo */
+    height: auto;
+    margin-left: 40px;
+}
+
+body.modal-open {
+    overflow: hidden; /* Bloquea el scroll cuando el modal está abierto */
+}
+
+@media (max-width: 768px) {
+    #sidebar {
+        width: 100%; /* Ocupa todo el ancho en pantallas pequeñas */
+        height: auto;
+        position: relative; /* Ajusta el posicionamiento */
+    }
+
+    .main {
+        margin-left: 0; /* Elimina margen en dispositivos pequeños */
+        width: 100%; /* Asegura que el contenido principal ocupe todo el ancho */
+    }
+
+    #custom-sidebar {
+        transform: translateX(-100%);
+    }
+    #custom-sidebar.active {
+        transform: translateX(0);
+    }
+    .main, .container-fluid {
+        margin-left: 0 !important;
+    }
+}
+
+a {
+    text-decoration: none; /* Elimina el subrayado de todos los enlaces */
+}
+
+a:hover {
+    text-decoration: none; /* Asegura que no se subrayen tampoco al pasar el cursor */
+}
+
+.text-darkblue {
+    color: #123e69; /* Azul oscuro */
+}
+
+#initialIcons, #pdfOptions, #excelOptions {
+    transition: all 0.4s ease-in-out;
+  }
+  
+  .d-none {
+    display: none !important; /* Ocultar dinámicamente */
+  }
+
+  #cont-general {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+/* Barra lateral personalizada */
+#custom-sidebar {
+    position: fixed;
+    left: 0;
+    top: 60px;
+    bottom: 0; /* Asegura que el sidebar termine justo en el borde inferior */
+    width: 240px;
+    height: auto; /* El alto se define por top y bottom */
+    background: #062974;
+    color: #fff;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    padding-top: 30px;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+    overflow-y: auto; /* El scroll aparecerá solo cuando el contenido sea muy largo */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+/* Scrollbar discreto para el sidebar */
+#custom-sidebar::-webkit-scrollbar {
+    width: 5px;
+}
+
+#custom-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+
+#custom-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.custom-sidebar-logo {
+    display: flex;
+    align-items: center;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 0 24px 24px 24px;
+    gap: 12px;
+}
+
+.custom-sidebar-logo i {
+    font-size: 2rem;
+    color: #fff;
+}
+
+.custom-sidebar-nav {
+    list-style: none;
+    padding: 0 0 0 0;
+    margin: 0;
+    flex: 1;
+}
+
+.custom-sidebar-nav li {
+    margin-bottom: 12px;
+}
+
+.custom-sidebar-nav a {
+    display: flex;
+    align-items: center;
+    padding: 12px 24px;
+    color: #fff;
+    font-size: 1rem;
+    text-decoration: none;
+    gap: 12px;
+    border-left: 3px solid transparent;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.custom-sidebar-nav a:hover,
+.custom-sidebar-nav a.active {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-left: 4px solid #3b7ddd !important;
+}
+
+.custom-sidebar-nav a.active {
+    background-color: #0e3791 !important; /* Azul más brillante */
+    box-shadow: inset 4px 0 0 #3b7ddd;
+    font-weight: 600;
+}
+
+.custom-sidebar-nav i {
+    font-size: 1.4rem;
+    color: #fff;
+}
+
+.custom-sidebar-toggle {
+    display: none;
+    position: fixed;
+    
+    z-index: 1100;
+    background: #0e213d;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.custom-sidebar-nav .collapse .list-unstyled {
+    padding-left: 30px;
+}
+.custom-sidebar-nav .dropdown-toggle::after {
+    content: " ▼";
+    font-size: 0.8em;
+}
+
+@media (max-width: 768px) {
+    #custom-sidebar {
+        left: -260px;
+        transition: left 0.3s;
+    }
+    #custom-sidebar.active {
+        left: 0;
+    }
+    .custom-sidebar-toggle {
+        display: block;
+    }
+    .main {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+}
+.navbar-max-width {
+    min-width: 120px;
+    margin: 0 auto;
+}
+.table-responsive td, 
+.table-responsive th {
+    white-space: nowrap;
+}
+
+
+
+.footerm {
+    background-color: #0e213d; /* Azul oscuro */
+    color: white;
+    padding: 20px 0;
+    
+    /* Esta es la clave para que se alinee con tu formulario: */
+    margin-left: 240px; /* Igual al margen de tu sidebar */
+    width: calc(100% - 240px); /* Ajusta el ancho para que no se desborde */
+    
+    /* Opcional: Esto ayuda a que el diseño sea responsive */
+    transition: margin-left 0.35s ease-in-out, width 0.35s ease-in-out;
+}
+
+.footerm p {
+    margin-bottom: 0.5rem;
+    opacity: 0.85;            /* Texto ligeramente suavizado para no cansar la vista */
+    font-size: 0.9rem;        /* Un poco más pequeño que el cuerpo del texto */
+}
+
+.footerm p:last-child {
+    margin-bottom: 0;         /* Elimina el margen del último párrafo */
+    font-size: 0.8rem;        /* Créditos un poco más pequeños */
+    opacity: 0.6;             /* Créditos más tenues */
+}
+
+.bg-primary {
+    background-color: #0e213d !important;
+}
+
+/* Botón personalizado con color institucional #062974 (Estilo Bootstrap) */
+.btn-primary-custom {
+    background-color: #062974 !important;
+    border-color: #062974 !important;
+    color: #ffffff !important;
+}
+
+.btn-primary-custom:hover, 
+.btn-primary-custom:focus, 
+.btn-primary-custom:active {
+    background-color: #041d52 !important;
+    border-color: #041d52 !important;
+    color: #ffffff !important;
+}
+
+/* Botón de ayuda flotante dinámico */
+.btn-help-floating {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 55px;
+    height: 55px;
+    background-color: #1cbeb1;  
+    color: white !important;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 2000;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-help-floating:hover {
+    background-color: #1cbeb1;  
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    color: #fff !important;
+}
+
+.btn-help-floating i {
+    transition: transform 0.3s ease;
+}
+
+.btn-help-floating:hover i {
+    transform: scale(1.1);
+}
+

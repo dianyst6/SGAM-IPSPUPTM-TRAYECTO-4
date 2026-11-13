@@ -1,0 +1,23 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f0f2f5;
+    background-image: url('/IPSPUPTM/recursos/img/login2.png'); /* Ruta de la imagen */
+    background-size: cover;       /* Cubre todo el body */
+    background-position: center;  /* Centra la imagen */
+    background-repeat: no-repeat; /* No repetir la imagen */
+    
+    /* 🚀 AGREGA ESTAS DOS LÍNEAS: */
+    background-attachment: fixed; /* Mantiene el fondo fijo en su lugar sin cortarse */
+    min-height: 100vh;            /* Fuerza al body a medir el 100% del alto de la ventana */
+    margin: 0;
+}
+ .logo-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            max-width: 350px;
+            /* Puedes ajustar el tamaño máximo del logo */
+            height: auto;
+        }
