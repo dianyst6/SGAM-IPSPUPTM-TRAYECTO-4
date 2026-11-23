@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 25-06-2026 a las 02:04:44
+-- Tiempo de generación: 23-11-2026 a las 21:36:52
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -31,7 +31,7 @@ USE `ipsp`;
 
 CREATE TABLE `afiliados` (
   `ID` int(11) NOT NULL,
-  `cedula` int(20) NOT NULL,
+  `id_persona` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -40,12 +40,13 @@ CREATE TABLE `afiliados` (
 -- Volcado de datos para la tabla `afiliados`
 --
 
-INSERT INTO `afiliados` (`ID`, `cedula`, `created_at`, `updated_at`) VALUES
-(52, 30270492, '2026-03-28 00:58:32', '2026-03-28 00:58:32'),
-(54, 3771659, '2026-05-14 23:17:52', '2026-05-14 23:17:52'),
-(55, 28296254, '2026-06-02 02:42:38', '2026-06-02 02:42:38'),
-(56, 12345678, '2026-06-02 12:28:58', '2026-06-02 12:28:58'),
-(57, 30492270, '2026-06-24 22:53:10', '2026-06-24 22:53:10');
+INSERT INTO `afiliados` (`ID`, `id_persona`, `created_at`, `updated_at`) VALUES
+(52, 6, '2026-03-28 00:58:32', '2026-11-11 16:49:12'),
+(54, 1, '2026-05-14 23:17:52', '2026-11-11 16:11:13'),
+(55, 5, '2026-06-02 02:42:38', '2026-11-11 16:11:13'),
+(56, 3, '2026-06-02 12:28:58', '2026-11-11 16:11:13'),
+(57, 7, '2026-06-24 22:53:10', '2026-11-11 16:11:13'),
+(58, 9, '2026-11-11 16:26:57', '2026-11-11 16:26:57');
 
 -- --------------------------------------------------------
 
@@ -54,9 +55,9 @@ INSERT INTO `afiliados` (`ID`, `cedula`, `created_at`, `updated_at`) VALUES
 --
 
 CREATE TABLE `beneficiarios` (
-  `ID` int(11) NOT NULL,
-  `cedula` int(20) NOT NULL,
-  `cedula_afil` int(20) NOT NULL,
+  `id_beneficiario` int(11) NOT NULL,
+  `id_persona` int(11) DEFAULT NULL,
+  `id_afiliado` int(20) NOT NULL,
   `parentesco` enum('Hijo','Esposo/a','Padre','Madre','Otro') NOT NULL DEFAULT 'Otro',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -66,10 +67,10 @@ CREATE TABLE `beneficiarios` (
 -- Volcado de datos para la tabla `beneficiarios`
 --
 
-INSERT INTO `beneficiarios` (`ID`, `cedula`, `cedula_afil`, `parentesco`, `created_at`, `updated_at`) VALUES
-(19, 10505948, 52, 'Otro', '2026-03-28 15:11:11', '2026-03-28 15:11:11'),
-(22, 22657594, 52, 'Hijo', '2026-06-01 23:46:09', '2026-06-01 23:46:09'),
-(21, 34234140, 52, 'Hijo', '2026-05-28 20:28:09', '2026-05-28 20:28:09');
+INSERT INTO `beneficiarios` (`id_beneficiario`, `id_persona`, `id_afiliado`, `parentesco`, `created_at`, `updated_at`) VALUES
+(19, 2, 52, 'Otro', '2026-03-28 15:11:11', '2026-11-12 15:01:08'),
+(21, 8, 52, 'Hijo', '2026-05-28 20:28:09', '2026-11-11 16:11:13'),
+(22, 4, 52, 'Hijo', '2026-06-01 23:46:09', '2026-11-11 16:11:13');
 
 -- --------------------------------------------------------
 
@@ -129,7 +130,37 @@ INSERT INTO `bitacora` (`idbitacora`, `usuario`, `accion`, `descripcion`, `fecha
 (41, 'admin', 'Registro de Cita', 'Se ha registrado una cita de tipo Afiliado para la fecha: 2026-06-21T14:02', '2026-06-02 02:58:32'),
 (42, 'admin', 'Pago Cita con Póliza', 'Cita #70 pagada mediante descuento de póliza. Monto original: 20.00 $, Monto descontado: 12.00 $.', '2026-06-02 02:58:53'),
 (43, 'admin', 'Registro Integral', 'Afiliado y Plan creados: 12345678', '2026-06-02 12:28:58'),
-(44, 'admin', 'Registro Integral', 'Afiliado y Plan creados: 30492270', '2026-06-24 22:53:10');
+(44, 'admin', 'Registro Integral', 'Afiliado y Plan creados: 30492270', '2026-06-24 22:53:10'),
+(45, 'admin', 'Eliminación de usuario', 'Se eliminó al usuario: oftalmologo y sus respuestas de seguridad.', '2026-07-12 00:11:36'),
+(46, 'admin', 'Eliminación de usuario', 'Se eliminó al usuario: grexz y sus respuestas de seguridad.', '2026-07-12 00:11:40'),
+(47, 'admin', 'Eliminación de usuario', 'Se eliminó al usuario: medico y sus respuestas de seguridad.', '2026-07-12 00:11:42'),
+(48, 'admin', 'Eliminación de usuario', 'Se eliminó al usuario: grexzs y sus respuestas de seguridad.', '2026-07-12 00:11:43'),
+(49, 'admin', 'Eliminación de usuario', 'Se eliminó al usuario: calco y sus respuestas de seguridad.', '2026-07-12 00:11:45'),
+(50, 'admin', 'Eliminación de usuario', 'Se eliminó al usuario: calco2 y sus respuestas de seguridad.', '2026-07-12 00:11:53'),
+(51, 'admin', 'Eliminación de usuario', 'Se eliminó al usuario: asdfs y sus respuestas de seguridad.', '2026-07-12 00:11:56'),
+(52, 'admin', 'Eliminación de usuario', 'Se eliminó al usuario: calco01 y sus respuestas de seguridad.', '2026-07-12 00:11:58'),
+(53, 'admin', 'Eliminación de usuario', 'Se eliminó al usuario: medicoso y sus respuestas de seguridad.', '2026-07-12 00:12:00'),
+(55, 'admin', 'Edición de Afiliado', 'Se han actualizado los datos del afiliado con cédula: 30270492, Nombre: Gregory, Apellido: Pérezz', '2026-11-11 16:23:49'),
+(56, 'admin', 'Registro Integral', 'Afiliado y Plan creados: 90000001', '2026-11-11 16:26:57'),
+(57, 'admin', 'Edición de Afiliado', 'Se cambió la cédula del afiliado de 30270492 a 30270422. Nombre: Gregory, Apellido: Pérezz', '2026-11-11 16:49:12'),
+(58, 'admin', 'Actualización de Beneficiario', 'Se cambió la cédula del beneficiario de 10505948 a 10505944. Nombre: Teresa Pérez', '2026-11-12 15:01:08'),
+(59, 'admin', 'Registro de Cita', 'Se ha registrado una cita de tipo Comunidad UPTM (Externo) para la fecha: 2026-11-19T16:04', '2026-11-12 20:04:49'),
+(60, 'admin', 'Pago Registrado', 'Se procesó pago de cita #71 por 18 $.', '2026-11-12 20:05:15'),
+(61, 'admin', 'Registro de Cita', 'Se ha registrado una cita de tipo Afiliado para la fecha: 2026-11-26T20:36', '2026-11-12 20:36:29'),
+(62, 'admin', 'Registro de Cita', 'Se ha registrado una cita de tipo Comunidad UPTM (Externo) para la fecha: 2026-12-01T16:37', '2026-11-12 20:37:13'),
+(63, 'admin', 'Registro de Cita', 'Se ha registrado una cita de tipo Afiliado para la fecha: 2027-02-20T10:00', '2026-11-15 17:25:30'),
+(64, 'admin', 'Pago Cita con Póliza', 'Cita #74 pagada mediante descuento de póliza. Monto original: $20.00, Monto descontado: $20.00, Descuento: 0.00%.', '2026-11-15 17:25:31'),
+(66, 'admin', 'Cancelación de Cita', 'Se canceló la cita: consulta (ID Cita: 72), Paciente: Gregory Pérezz (Afiliado), Fecha: 2026-11-26 20:36:00, Especialidad: Ginecología', '2026-11-15 17:31:16'),
+(67, 'admin', 'Cancelación de Cita', 'Se canceló la cita: consulta (ID Cita: 72), Paciente: Gregory Pérezz (Afiliado), Fecha: 2026-11-26 20:36:00, Especialidad: Ginecología', '2026-11-15 17:31:16'),
+(68, 'admin', 'Cancelación de Cita', 'Se canceló la cita: endoscopia (ID Cita: 73), Paciente: Jose Pérez (Comunidad UPTM), Fecha: 2026-12-01 16:37:00, Especialidad: Gastroenterología', '2026-11-15 17:31:19'),
+(69, 'admin', 'Cancelación de Cita', 'Se canceló la cita: endoscopia (ID Cita: 73), Paciente: Jose Pérez (Comunidad UPTM), Fecha: 2026-12-01 16:37:00, Especialidad: Gastroenterología', '2026-11-15 17:31:19'),
+(77, 'admin', 'Asignaci¾n de Plan', 'Contrato 2026 creado para cÚdula 30270422 (inscripci¾n tardÝa del a±o en curso). Inicial: $54.00, cuota: $126.00 x 1', '2026-11-17 19:51:30'),
+(78, 'admin', 'Pago de contrato', 'Contrato 1: Pago inicial completo por $54.00 (Bs 49,450.50 a tasa 915.75)', '2026-11-17 19:51:30'),
+(79, 'admin', 'Pago de contrato', 'Contrato 1: 1 cuota(s) completa(s) por $126.00 (Bs 115,384.50 a tasa 915.75)', '2026-11-17 19:52:52'),
+(80, 'admin', 'Registro de Cita', 'Se ha registrado una cita de tipo Afiliado para la fecha: 2026-11-26T08:12', '2026-11-17 20:08:32'),
+(81, 'admin', 'Registro de Cita', 'Se ha registrado una cita de tipo Beneficiario para la fecha: 2026-11-22T16:08', '2026-11-17 20:09:07'),
+(82, 'admin', 'Pago Cita con Póliza', 'Cita #76 pagada mediante descuento de póliza. Monto original: $20.00, Monto descontado: $20.00, Descuento: 0.00%.', '2026-11-17 20:09:27'),
+(83, 'admin', 'Pago Cita con Póliza', 'Cita #77 pagada mediante descuento de póliza. Monto original: $20.00, Monto descontado: $20.00, Descuento: 0.00%.', '2026-11-17 20:09:31');
 
 -- --------------------------------------------------------
 
@@ -167,6 +198,7 @@ INSERT INTO `categorias_examenes` (`id_categoria`, `nombre_categoria`, `descripc
 CREATE TABLE `citas` (
   `id_cita` int(11) NOT NULL,
   `id_especialidad` int(11) NOT NULL,
+  `id_persona` int(11) NOT NULL,
   `fecha_cita` datetime NOT NULL,
   `descripcion` text DEFAULT NULL,
   `estado_pago` enum('Por Pagar','Pagada','Deducida de Póliza') NOT NULL DEFAULT 'Por Pagar',
@@ -179,46 +211,15 @@ CREATE TABLE `citas` (
 -- Volcado de datos para la tabla `citas`
 --
 
-INSERT INTO `citas` (`id_cita`, `id_especialidad`, `fecha_cita`, `descripcion`, `estado_pago`, `estado`, `created_at`, `updated_at`) VALUES
-(68, 2, '2026-05-08 12:00:00', 'asd', 'Deducida de Póliza', 'activa', '2026-05-08 01:09:33', '2026-05-28 20:50:17'),
-(69, 5, '2026-06-04 07:41:00', 'CITA', 'Pagada', 'activa', '2026-05-28 20:38:28', '2026-05-28 20:49:24'),
-(70, 7, '2026-06-21 14:02:00', 'asd', 'Deducida de Póliza', 'activa', '2026-06-02 02:58:32', '2026-06-02 02:58:53');
-
--- --------------------------------------------------------
-
---
--- Estructura de tabla para la tabla `citas_afil`
---
-
-CREATE TABLE `citas_afil` (
-  `id_citas_afil` int(11) NOT NULL,
-  `idcita` int(11) NOT NULL,
-  `id_afiliado` int(11) NOT NULL,
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Volcado de datos para la tabla `citas_afil`
---
-
-INSERT INTO `citas_afil` (`id_citas_afil`, `idcita`, `id_afiliado`, `updated_at`, `created_at`) VALUES
-(40, 68, 52, '2026-05-08 01:09:33', '2026-05-08 01:09:33'),
-(41, 70, 54, '2026-06-02 02:58:32', '2026-06-02 02:58:32');
-
--- --------------------------------------------------------
-
---
--- Estructura de tabla para la tabla `citas_benef`
---
-
-CREATE TABLE `citas_benef` (
-  `id_citas_benef` int(11) NOT NULL,
-  `idcita` int(11) NOT NULL,
-  `id_beneficiario` int(11) NOT NULL,
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+INSERT INTO `citas` (`id_cita`, `id_especialidad`, `id_persona`, `fecha_cita`, `descripcion`, `estado_pago`, `estado`, `created_at`, `updated_at`) VALUES
+(68, 2, 6, '2026-05-08 12:00:00', 'asd', 'Deducida de Póliza', 'cancelada', '2026-05-08 01:09:33', '2026-11-15 13:52:12'),
+(69, 5, 10, '2026-06-04 07:41:00', 'CITA', 'Pagada', 'activa', '2026-05-28 20:38:28', '2026-11-12 20:33:10'),
+(70, 7, 1, '2026-06-21 14:02:00', 'asd', 'Deducida de Póliza', 'cancelada', '2026-06-02 02:58:32', '2026-11-15 13:52:12'),
+(71, 5, 10, '2026-11-19 16:04:00', 'consulta', 'Pagada', 'activa', '2026-11-12 20:04:49', '2026-11-12 20:33:10'),
+(72, 1, 6, '2026-11-26 20:36:00', 'consulta', 'Por Pagar', 'cancelada', '2026-11-12 20:36:29', '2026-11-15 17:31:16'),
+(73, 5, 10, '2026-12-01 16:37:00', 'endoscopia', 'Por Pagar', 'cancelada', '2026-11-12 20:37:13', '2026-11-15 17:31:19'),
+(76, 6, 6, '2026-11-26 08:12:00', 'rayos x', 'Deducida de Póliza', 'activa', '2026-11-17 20:08:32', '2026-11-17 20:09:27'),
+(77, 2, 4, '2026-11-22 16:08:00', 'consulta', 'Deducida de Póliza', 'activa', '2026-11-17 20:09:07', '2026-11-17 20:09:31');
 
 -- --------------------------------------------------------
 
@@ -240,28 +241,12 @@ CREATE TABLE `citas_examenes` (
 INSERT INTO `citas_examenes` (`id_cita_examen`, `id_cita`, `id_examen`, `precio_historico`) VALUES
 (29, 68, 5, 20.00),
 (30, 69, 4, 20.00),
-(31, 70, 13, 20.00);
-
--- --------------------------------------------------------
-
---
--- Estructura de tabla para la tabla `citas_uptm`
---
-
-CREATE TABLE `citas_uptm` (
-  `id_citas_uptm` int(11) NOT NULL,
-  `idcita` int(11) NOT NULL,
-  `id_externo` int(11) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Volcado de datos para la tabla `citas_uptm`
---
-
-INSERT INTO `citas_uptm` (`id_citas_uptm`, `idcita`, `id_externo`, `created_at`, `updated_at`) VALUES
-(17, 69, 6, '2026-05-28 20:38:28', '2026-05-28 20:38:28');
+(31, 70, 13, 20.00),
+(32, 71, 4, 20.00),
+(33, 72, 1, 20.00),
+(34, 73, 12, 50.00),
+(37, 76, 11, 20.00),
+(38, 77, 5, 20.00);
 
 -- --------------------------------------------------------
 
@@ -291,36 +276,14 @@ INSERT INTO `componentes_planes` (`ID_componenteplan`, `ID_planes_componentes`, 
 (29, 6, NULL, 8, NULL, 300.00),
 (30, 7, NULL, 1, 10, 300.00),
 (31, 7, NULL, 9, NULL, 200.00),
-(32, 7, NULL, 3, 3, 100.00);
-
--- --------------------------------------------------------
-
---
--- Estructura de tabla para la tabla `comunidad_uptm`
---
-
-CREATE TABLE `comunidad_uptm` (
-  `id` int(11) NOT NULL,
-  `cedula` int(20) NOT NULL,
-  `nombre` varchar(50) NOT NULL,
-  `apellido` varchar(50) NOT NULL,
-  `telefono` varchar(11) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `deleted_at` timestamp NULL DEFAULT NULL,
-  `id_tipo_ext` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Volcado de datos para la tabla `comunidad_uptm`
---
-
-INSERT INTO `comunidad_uptm` (`id`, `cedula`, `nombre`, `apellido`, `telefono`, `created_at`, `updated_at`, `deleted_at`, `id_tipo_ext`) VALUES
-(5, 22657594, 'Luis', 'Mendoza', '879987', '2026-04-06 21:16:27', '2026-06-02 01:30:30', NULL, NULL),
-(6, 12308793, 'Jose', 'Pérez', '546654', '2026-05-28 20:38:28', '2026-06-02 01:30:25', NULL, NULL),
-(9, 30960255, 'diana', 'torrega', '04120411874', '2026-06-02 00:37:59', '2026-06-02 00:46:19', NULL, NULL),
-(10, 30270491, 'grecio', 'salazar', '04147175394', '2026-06-02 00:44:05', '2026-06-02 00:44:05', NULL, NULL),
-(11, 28296254, 'genesis leimar', 'contreras', '4654546', '2026-06-02 00:57:01', '2026-06-02 00:57:46', NULL, NULL);
+(32, 7, NULL, 3, 3, 100.00),
+(40, 9, NULL, 1, 8, 300.00),
+(41, 9, NULL, 3, 4, 80.00),
+(42, 9, NULL, 4, NULL, 60.00),
+(43, 9, NULL, 6, NULL, 60.00),
+(44, 9, NULL, 7, NULL, 0.00),
+(45, 9, NULL, 8, NULL, 300.00),
+(46, 9, NULL, 9, NULL, 0.00);
 
 -- --------------------------------------------------------
 
@@ -331,8 +294,8 @@ INSERT INTO `comunidad_uptm` (`id`, `cedula`, `nombre`, `apellido`, `telefono`, 
 CREATE TABLE `consumo_plan` (
   `ID_consumo` int(11) NOT NULL,
   `ID_contrato_plan` int(11) NOT NULL,
+  `id_persona` int(11) NOT NULL,
   `id_cita` int(11) DEFAULT NULL,
-  `ID_persona_plan` int(11) NOT NULL,
   `ID_examen_plan` int(11) DEFAULT NULL,
   `nombre_estudio_externo` varchar(255) DEFAULT NULL,
   `id_categoria_externa` int(11) DEFAULT NULL,
@@ -344,8 +307,37 @@ CREATE TABLE `consumo_plan` (
 -- Volcado de datos para la tabla `consumo_plan`
 --
 
-INSERT INTO `consumo_plan` (`ID_consumo`, `ID_contrato_plan`, `id_cita`, `ID_persona_plan`, `ID_examen_plan`, `nombre_estudio_externo`, `id_categoria_externa`, `monto_descontado`, `fecha_consumo`) VALUES
-(26, 16, 70, 3771659, 13, NULL, NULL, 12.00, '2026-06-01 22:58:53');
+INSERT INTO `consumo_plan` (`ID_consumo`, `ID_contrato_plan`, `id_persona`, `id_cita`, `ID_examen_plan`, `nombre_estudio_externo`, `id_categoria_externa`, `monto_descontado`, `fecha_consumo`) VALUES
+(1, 1, 6, 76, 11, NULL, NULL, 20.00, '2026-11-17 16:09:27'),
+(2, 1, 4, 77, 5, NULL, NULL, 20.00, '2026-11-17 16:09:31');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `contrato_cuotas`
+--
+
+CREATE TABLE `contrato_cuotas` (
+  `id_cuota` int(11) NOT NULL,
+  `id_contrato` int(11) NOT NULL,
+  `numero_cuota` int(11) NOT NULL,
+  `anio` int(11) NOT NULL,
+  `mes` int(11) NOT NULL,
+  `fecha_vencimiento` date NOT NULL,
+  `monto` decimal(10,2) NOT NULL,
+  `monto_pagado` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `estado` varchar(20) NOT NULL DEFAULT 'Pendiente',
+  `id_pago` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `contrato_cuotas`
+--
+
+INSERT INTO `contrato_cuotas` (`id_cuota`, `id_contrato`, `numero_cuota`, `anio`, `mes`, `fecha_vencimiento`, `monto`, `monto_pagado`, `estado`, `id_pago`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, 2026, 12, '2026-12-05', 126.00, 126.00, 'Pagada', 2, '2026-11-17 19:51:10', '2026-11-17 19:52:52');
 
 -- --------------------------------------------------------
 
@@ -356,7 +348,8 @@ INSERT INTO `consumo_plan` (`ID_consumo`, `ID_contrato_plan`, `id_cita`, `ID_per
 CREATE TABLE `contrato_plan` (
   `ID_contrato` int(11) NOT NULL,
   `ID_planes_contrato` int(11) NOT NULL,
-  `ID_afiliado_contrato` int(11) NOT NULL,
+  `id_persona` int(11) NOT NULL,
+  `anio` int(11) DEFAULT NULL,
   `fecha_inicio` date NOT NULL,
   `fecha_fin` date NOT NULL,
   `monto_total` decimal(10,2) NOT NULL,
@@ -369,14 +362,8 @@ CREATE TABLE `contrato_plan` (
 -- Volcado de datos para la tabla `contrato_plan`
 --
 
-INSERT INTO `contrato_plan` (`ID_contrato`, `ID_planes_contrato`, `ID_afiliado_contrato`, `fecha_inicio`, `fecha_fin`, `monto_total`, `frecuencia_pago`, `dia_pago_mensual`, `estado_contrato`) VALUES
-(13, 6, 30270492, '2026-01-01', '2027-03-27', 180.00, 'Mensual', 29, 'Inactivo'),
-(15, 6, 3771659, '2025-12-01', '2026-12-31', 180.00, 'Mensual', 30, 'Inactivo'),
-(16, 7, 3771659, '2026-02-10', '2026-12-31', 140.00, 'Mensual', 31, 'Activo'),
-(17, 7, 30270492, '2026-06-01', '2026-12-31', 140.00, 'Mensual', 30, 'Activo'),
-(18, 6, 28296254, '2026-06-01', '2026-12-31', 180.00, 'Mensual', 28, 'Activo'),
-(19, 6, 12345678, '2026-06-02', '2026-12-31', 180.00, 'Mensual', 30, 'Activo'),
-(20, 6, 30492270, '2026-06-24', '2026-12-31', 180.00, 'Mensual', 30, 'Activo');
+INSERT INTO `contrato_plan` (`ID_contrato`, `ID_planes_contrato`, `id_persona`, `anio`, `fecha_inicio`, `fecha_fin`, `monto_total`, `frecuencia_pago`, `dia_pago_mensual`, `estado_contrato`) VALUES
+(1, 6, 6, 2026, '2026-11-17', '2026-12-31', 180.00, 'Mensual', 5, 'Activo');
 
 -- --------------------------------------------------------
 
@@ -440,7 +427,8 @@ INSERT INTO `examenes` (`ID_examen`, `nombre_examen`, `precio`, `ID_especialidad
 (16, 'Rayos x de Codo', 20.00, 6, 4, 'activo'),
 (18, 'Citologia', 20.00, 1, 6, 'inactivo'),
 (19, 'Rayos x pie', 20.00, 6, 4, 'activo'),
-(20, 'Eco razonal', 200.00, 6, 3, 'activo');
+(20, 'Eco razonal', 200.00, 6, 3, 'activo'),
+(21, 'Consulta odontologica', 15.00, 3, 1, 'activo');
 
 -- --------------------------------------------------------
 
@@ -537,8 +525,7 @@ CREATE TABLE `medicos` (
 --
 
 INSERT INTO `medicos` (`ci_medico`, `id_usuario`, `especialidad`, `telefono_personal`) VALUES
-(22657123, 34, 3, '6545645465'),
-(30254960, 35, 4, '46554');
+(22657123, 34, 3, '6545645465');
 
 -- --------------------------------------------------------
 
@@ -553,6 +540,8 @@ CREATE TABLE `pagos_contrato` (
   `fecha_pago` date NOT NULL,
   `numero_cuota` int(11) DEFAULT NULL,
   `metodo_pago` varchar(50) DEFAULT NULL,
+  `tasa_bcv` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `monto_bs` decimal(12,2) NOT NULL DEFAULT 0.00,
   `tipo_pago` varchar(20) NOT NULL DEFAULT 'Cuota'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -560,21 +549,9 @@ CREATE TABLE `pagos_contrato` (
 -- Volcado de datos para la tabla `pagos_contrato`
 --
 
-INSERT INTO `pagos_contrato` (`ID_pago`, `ID_contrato`, `monto_cuota`, `fecha_pago`, `numero_cuota`, `metodo_pago`, `tipo_pago`) VALUES
-(66, 16, 42.00, '2026-06-02', NULL, 'Transferencia', 'Pago Inicial'),
-(67, 16, 14.00, '2026-06-02', 3, 'Transferencia', 'Cuota'),
-(68, 16, 14.00, '2026-06-02', 4, 'Transferencia', 'Cuota'),
-(69, 16, 14.00, '2026-06-01', 5, 'Transferencia', 'Cuota'),
-(70, 18, 54.00, '2026-06-01', NULL, 'Transferencia', 'Pago Inicial'),
-(71, 18, 42.00, '2026-06-01', 3, 'Transferencia', 'Cuota'),
-(72, 16, 14.00, '2026-06-01', 6, 'Transferencia', 'Cuota'),
-(73, 17, 41.98, '2026-06-01', NULL, 'Transferencia', 'Pago Inicial'),
-(74, 17, 0.02, '2026-06-01', NULL, 'Transferencia', 'Pago Inicial'),
-(77, 17, 32.67, '2026-06-01', 1, 'Transferencia', 'Cuota'),
-(78, 19, 54.00, '2026-06-02', NULL, 'Transferencia', 'Pago Inicial'),
-(79, 19, 42.00, '2026-06-02', 1, 'Transferencia', 'Cuota'),
-(80, 19, 42.00, '2026-06-02', 2, 'Transferencia', 'Cuota'),
-(81, 19, 42.00, '2026-06-02', 3, 'Transferencia', 'Cuota');
+INSERT INTO `pagos_contrato` (`ID_pago`, `ID_contrato`, `monto_cuota`, `fecha_pago`, `numero_cuota`, `metodo_pago`, `tasa_bcv`, `monto_bs`, `tipo_pago`) VALUES
+(1, 1, 54.00, '2026-11-17', NULL, 'Transferencia', 915.75, 49450.50, 'Pago Inicial'),
+(2, 1, 126.00, '2026-11-17', 1, 'Transferencia', 915.75, 115384.50, 'Cuota');
 
 -- --------------------------------------------------------
 
@@ -596,7 +573,8 @@ CREATE TABLE `pagos_externos` (
 --
 
 INSERT INTO `pagos_externos` (`id_pago_ext`, `id_cita`, `monto_base`, `monto_final`, `metodo_pago`, `fecha_pago`) VALUES
-(25, 69, 20.00, 17.00, 'Efectivo', '2026-05-28 20:49:24');
+(25, 69, 20.00, 17.00, 'Efectivo', '2026-05-28 20:49:24'),
+(26, 71, 20.00, 18.00, 'Efectivo', '2026-11-12 20:05:15');
 
 -- --------------------------------------------------------
 
@@ -605,11 +583,13 @@ INSERT INTO `pagos_externos` (`id_pago_ext`, `id_cita`, `monto_base`, `monto_fin
 --
 
 CREATE TABLE `persona` (
+  `id_persona` int(11) NOT NULL,
   `cedula` int(11) NOT NULL,
   `nombre` varchar(50) NOT NULL,
   `apellido` varchar(50) NOT NULL,
-  `fechanacimiento` date NOT NULL,
-  `genero` enum('Masculino','Femenino','','') NOT NULL,
+  `fechanacimiento` date DEFAULT NULL,
+  `genero` enum('Masculino','Femenino') DEFAULT NULL,
+  `estado_civil` varchar(40) DEFAULT NULL,
   `telefono` varchar(20) NOT NULL,
   `correo` varchar(100) NOT NULL,
   `ocupacion` varchar(50) NOT NULL,
@@ -620,15 +600,19 @@ CREATE TABLE `persona` (
 -- Volcado de datos para la tabla `persona`
 --
 
-INSERT INTO `persona` (`cedula`, `nombre`, `apellido`, `fechanacimiento`, `genero`, `telefono`, `correo`, `ocupacion`, `estado`) VALUES
-(3771659, 'Ana ', 'Salazar', '1984-08-30', 'Femenino', '446466654', 'asdda@asdasdaa', 'ama de casa', ''),
-(10505948, 'Teresa', 'Pérez', '1974-03-21', 'Femenino', '2147483647', 'tere_34_11_3@gmail.com', 'Nada', ''),
-(12345678, 'alana', 'perez', '2000-02-08', 'Femenino', '46564654', 'asdasd@asdasd', 'asdasd', ''),
-(22657594, 'Luis ', 'Mendoza', '2015-04-02', 'Masculino', '2147483647', 'asdasd@asdasdadad', 'asdads', ''),
-(28296254, 'genesis', 'contreras', '2002-09-14', 'Femenino', '5545664', 'asdasd@asddas', 'comerciante', ''),
-(30270492, 'Gregory', 'Pérez', '2002-08-31', 'Masculino', '46544', 'gps.3108@gmail.com', 'asdasd', ''),
-(30492270, 'luis', 'balbo', '1994-05-08', 'Masculino', '04147175394', 'gps.3109@gmail.com', 'futbolista', ''),
-(34234140, 'Sebastian', 'Pérez', '2011-10-23', 'Masculino', '2147483647', 'asddas@asdasdsda', 'estudiante', '');
+INSERT INTO `persona` (`id_persona`, `cedula`, `nombre`, `apellido`, `fechanacimiento`, `genero`, `estado_civil`, `telefono`, `correo`, `ocupacion`, `estado`) VALUES
+(1, 3771659, 'Ana ', 'Salazar', '1984-08-30', 'Femenino', NULL, '446466654', 'asdda@asdasdaa', 'ama de casa', ''),
+(2, 10505944, 'Teresa', 'Pérez', '1974-03-21', 'Femenino', 'No aplica', '04120411874', 'tere_34_11_3@gmail.com', 'Nada', ''),
+(3, 12345678, 'alana', 'perez', '2000-02-08', 'Femenino', NULL, '46564654', 'asdasd@asdasd', 'asdasd', ''),
+(4, 22657594, 'Luis ', 'Mendoza', '2015-04-02', 'Masculino', 'No aplica', '2147483647', 'asdasd@asdasdadad', 'asdads', ''),
+(5, 28296254, 'genesis', 'contreras', '2002-09-14', 'Femenino', NULL, '5545664', 'asdasd@asddas', 'comerciante', ''),
+(6, 30270422, 'Gregory', 'Pérezz', '2002-08-31', 'Masculino', NULL, '04147175394', 'gps.3108@gmail.com', 'asdasd', ''),
+(7, 30492270, 'luis', 'balbo', '1994-05-08', 'Masculino', NULL, '04147175394', 'gps.3109@gmail.com', 'futbolista', ''),
+(8, 34234140, 'Sebastian', 'Pérez', '2011-10-23', 'Masculino', 'No aplica', '2147483647', 'asddas@asdasdsda', 'estudiante', ''),
+(9, 90000001, 'arturo', 'vidal', '2002-06-11', 'Masculino', NULL, '04147175394', 'gps.31088@gmail.com', 'asdasd', ''),
+(10, 12308793, 'Jose', 'Pérez', NULL, NULL, NULL, '546654', 'No aplica', 'No aplica', 'No aplica'),
+(11, 30960255, 'diana', 'torrega', NULL, NULL, NULL, '04120411874', 'No aplica', 'No aplica', 'No aplica'),
+(12, 30270491, 'grecio', 'salazar', NULL, NULL, NULL, '04147175394', 'No aplica', 'No aplica', 'No aplica');
 
 -- --------------------------------------------------------
 
@@ -641,6 +625,8 @@ CREATE TABLE `planes` (
   `nombre_plan` varchar(100) NOT NULL,
   `precio` decimal(10,2) NOT NULL,
   `monto_cobertura` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `anio` int(11) DEFAULT NULL,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
   `descripcion` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -648,9 +634,10 @@ CREATE TABLE `planes` (
 -- Volcado de datos para la tabla `planes`
 --
 
-INSERT INTO `planes` (`ID_planes`, `nombre_plan`, `precio`, `monto_cobertura`, `descripcion`) VALUES
-(6, 'Plan salud 2026', 180.00, 800.00, ''),
-(7, 'Plan Salud Premium 2027', 140.00, 800.00, '');
+INSERT INTO `planes` (`ID_planes`, `nombre_plan`, `precio`, `monto_cobertura`, `anio`, `activo`, `descripcion`) VALUES
+(6, 'Plan salud 2026', 180.00, 800.00, 2026, 1, ''),
+(7, 'Plan Salud Premium 2027', 140.00, 800.00, 2027, 0, ''),
+(9, 'Plan Salud 2027', 140.00, 800.00, 2027, 1, 'Plan anual de salud 2027');
 
 -- --------------------------------------------------------
 
@@ -699,8 +686,7 @@ INSERT INTO `respuestas_seguridad` (`id`, `usuario_id`, `pregunta_seguridad_id`,
 (41, 31, 1, 'caracas'),
 (42, 31, 3, 'verde'),
 (47, 34, 1, 'merida'),
-(48, 34, 3, 'marron'),
-(49, 35, 1, 'merida');
+(48, 34, 3, 'marron');
 
 -- --------------------------------------------------------
 
@@ -765,16 +751,7 @@ INSERT INTO `usuarios` (`id`, `username`, `password`, `role_id`) VALUES
 (25, 'grego', '$2y$10$Mg0yHFSuZJn9IuosEniBqOzf.duGs9/I2YyLpfxEEma0HWtItKiZG', 1),
 (27, 'usuario', '$2y$10$/1OPBwmDoMLB6KKeMXGxMejHfMviGhH7FkkBc7ams3niG/fmfY3TK', 2),
 (31, 'secretaria', '$2y$10$6c9yiRlxmWalX4aP6vCAOORlE5MKmdLmPOMzdIh1vaLbsaPajkEJK', 2),
-(34, 'odontologo', '$2y$10$28X4uDnKDqr8Ua.NOBpZG.vz./KuqYiOS26a6F4MCaz8mszcmeTWa', 3),
-(35, 'oftalmologo', '$2y$10$.1.njb8YeEJiFCYvfJVtmugeDJWujRXkIRbTQ62tPoK9oBZt5h4wu', 3),
-(36, 'grexz', '$2y$10$6YttKJ0sp/OC.4NtrVgtc.m052..r6weKOXURLOcQw0FWQLbXO9GW', 1),
-(37, 'medico', '$2y$10$0wXEDosoVQj1hlrZjSr.dO8iCI2o7RsQSKYzTAw7Dz5qI3rwqGlYu', 3),
-(38, 'grexzs', '$2y$10$adab5VclY4PM5gyXIQwOluIBEtUSe5bukMBKYWc5o9gCICh4PIw0i', 3),
-(39, 'calco', '$2y$10$UYt.UyQ9NMspCVCjhY5abeK6qgo7eObsYJar6K20utNDxukFejc2y', 3),
-(40, 'calco2', '$2y$10$dGdHkvDGBhJOD41q0OiNA.bUdXF5BzzcXtvpIjRqnbz/CVvgPbgeS', 3),
-(41, 'asdfs', '$2y$10$IyG1GJoi5FXCczztrtwXc.Qw.RvPiVE32yuzdfO0nLmmQnnjQMISS', 1),
-(42, 'calco01', '$2y$10$GwAE46HyCCsle8Cbe4vRbOpAxERZY4YSzHwXftng8BvU3MmH/KxG.', 1),
-(43, 'medicoso', '$2y$10$VpWArcocblUCsUnhPMCQH.V8Y1aSb.Vaa/WKyLaAapQvwgWv/inRy', 3);
+(34, 'odontologo', '$2y$10$28X4uDnKDqr8Ua.NOBpZG.vz./KuqYiOS26a6F4MCaz8mszcmeTWa', 3);
 
 --
 -- Índices para tablas volcadas
@@ -785,15 +762,15 @@ INSERT INTO `usuarios` (`id`, `username`, `password`, `role_id`) VALUES
 --
 ALTER TABLE `afiliados`
   ADD PRIMARY KEY (`ID`),
-  ADD UNIQUE KEY `cedula` (`cedula`);
+  ADD UNIQUE KEY `uq_afiliados_persona` (`id_persona`);
 
 --
 -- Indices de la tabla `beneficiarios`
 --
 ALTER TABLE `beneficiarios`
-  ADD PRIMARY KEY (`cedula`),
-  ADD UNIQUE KEY `Unico` (`ID`),
-  ADD KEY `dependencia` (`cedula_afil`);
+  ADD PRIMARY KEY (`id_beneficiario`),
+  ADD UNIQUE KEY `uq_beneficiarios_persona` (`id_persona`),
+  ADD KEY `dependencia` (`id_afiliado`);
 
 --
 -- Indices de la tabla `bitacora`
@@ -813,23 +790,8 @@ ALTER TABLE `categorias_examenes`
 --
 ALTER TABLE `citas`
   ADD PRIMARY KEY (`id_cita`),
-  ADD KEY `id_especialidad` (`id_especialidad`);
-
---
--- Indices de la tabla `citas_afil`
---
-ALTER TABLE `citas_afil`
-  ADD PRIMARY KEY (`id_citas_afil`),
-  ADD UNIQUE KEY `idcita` (`idcita`,`id_afiliado`),
-  ADD KEY `id_afiliado` (`id_afiliado`);
-
---
--- Indices de la tabla `citas_benef`
---
-ALTER TABLE `citas_benef`
-  ADD PRIMARY KEY (`id_citas_benef`),
-  ADD UNIQUE KEY `idcita` (`idcita`,`id_beneficiario`),
-  ADD KEY `id_beneficiario` (`id_beneficiario`);
+  ADD KEY `id_especialidad` (`id_especialidad`),
+  ADD KEY `idx_citas_persona` (`id_persona`);
 
 --
 -- Indices de la tabla `citas_examenes`
@@ -838,14 +800,6 @@ ALTER TABLE `citas_examenes`
   ADD PRIMARY KEY (`id_cita_examen`),
   ADD KEY `id_cita` (`id_cita`),
   ADD KEY `id_examen` (`id_examen`);
-
---
--- Indices de la tabla `citas_uptm`
---
-ALTER TABLE `citas_uptm`
-  ADD PRIMARY KEY (`id_citas_uptm`),
-  ADD KEY `idcita` (`idcita`),
-  ADD KEY `id_externo` (`id_externo`);
 
 --
 -- Indices de la tabla `componentes_planes`
@@ -857,22 +811,24 @@ ALTER TABLE `componentes_planes`
   ADD KEY `fk_componente_categoria` (`id_categoria_componente`);
 
 --
--- Indices de la tabla `comunidad_uptm`
---
-ALTER TABLE `comunidad_uptm`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `cedula` (`cedula`),
-  ADD KEY `fk_comunidad_tipo` (`id_tipo_ext`);
-
---
 -- Indices de la tabla `consumo_plan`
 --
 ALTER TABLE `consumo_plan`
   ADD PRIMARY KEY (`ID_consumo`),
   ADD KEY `ID_contrato_plan` (`ID_contrato_plan`),
-  ADD KEY `ID_persona_plan` (`ID_persona_plan`),
   ADD KEY `ID_examen_plan` (`ID_examen_plan`),
-  ADD KEY `fk_consumo_cita` (`id_cita`);
+  ADD KEY `fk_consumo_cita` (`id_cita`),
+  ADD KEY `idx_consumo_persona` (`id_persona`);
+
+--
+-- Indices de la tabla `contrato_cuotas`
+--
+ALTER TABLE `contrato_cuotas`
+  ADD PRIMARY KEY (`id_cuota`),
+  ADD UNIQUE KEY `uq_contrato_cuota` (`id_contrato`,`numero_cuota`),
+  ADD KEY `idx_cuota_vencimiento` (`fecha_vencimiento`),
+  ADD KEY `idx_cuota_estado` (`estado`),
+  ADD KEY `fk_cuota_pago` (`id_pago`);
 
 --
 -- Indices de la tabla `contrato_plan`
@@ -880,7 +836,8 @@ ALTER TABLE `consumo_plan`
 ALTER TABLE `contrato_plan`
   ADD PRIMARY KEY (`ID_contrato`),
   ADD KEY `ID_planes_contrato` (`ID_planes_contrato`),
-  ADD KEY `contrato_plan_ibfk_2` (`ID_afiliado_contrato`);
+  ADD KEY `idx_contrato_persona` (`id_persona`),
+  ADD KEY `idx_contrato_anio` (`anio`);
 
 --
 -- Indices de la tabla `especialidades`
@@ -936,13 +893,15 @@ ALTER TABLE `pagos_externos`
 -- Indices de la tabla `persona`
 --
 ALTER TABLE `persona`
-  ADD PRIMARY KEY (`cedula`);
+  ADD PRIMARY KEY (`id_persona`),
+  ADD UNIQUE KEY `uq_persona_cedula` (`cedula`);
 
 --
 -- Indices de la tabla `planes`
 --
 ALTER TABLE `planes`
-  ADD PRIMARY KEY (`ID_planes`);
+  ADD PRIMARY KEY (`ID_planes`),
+  ADD KEY `idx_planes_anio_activo` (`anio`,`activo`);
 
 --
 -- Indices de la tabla `preguntas_seguridad`
@@ -986,19 +945,19 @@ ALTER TABLE `usuarios`
 -- AUTO_INCREMENT de la tabla `afiliados`
 --
 ALTER TABLE `afiliados`
-  MODIFY `ID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=58;
+  MODIFY `ID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=59;
 
 --
 -- AUTO_INCREMENT de la tabla `beneficiarios`
 --
 ALTER TABLE `beneficiarios`
-  MODIFY `ID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
+  MODIFY `id_beneficiario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
 -- AUTO_INCREMENT de la tabla `bitacora`
 --
 ALTER TABLE `bitacora`
-  MODIFY `idbitacora` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
+  MODIFY `idbitacora` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=84;
 
 --
 -- AUTO_INCREMENT de la tabla `categorias_examenes`
@@ -1010,55 +969,37 @@ ALTER TABLE `categorias_examenes`
 -- AUTO_INCREMENT de la tabla `citas`
 --
 ALTER TABLE `citas`
-  MODIFY `id_cita` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=71;
-
---
--- AUTO_INCREMENT de la tabla `citas_afil`
---
-ALTER TABLE `citas_afil`
-  MODIFY `id_citas_afil` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
-
---
--- AUTO_INCREMENT de la tabla `citas_benef`
---
-ALTER TABLE `citas_benef`
-  MODIFY `id_citas_benef` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id_cita` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=78;
 
 --
 -- AUTO_INCREMENT de la tabla `citas_examenes`
 --
 ALTER TABLE `citas_examenes`
-  MODIFY `id_cita_examen` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
-
---
--- AUTO_INCREMENT de la tabla `citas_uptm`
---
-ALTER TABLE `citas_uptm`
-  MODIFY `id_citas_uptm` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+  MODIFY `id_cita_examen` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=39;
 
 --
 -- AUTO_INCREMENT de la tabla `componentes_planes`
 --
 ALTER TABLE `componentes_planes`
-  MODIFY `ID_componenteplan` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
-
---
--- AUTO_INCREMENT de la tabla `comunidad_uptm`
---
-ALTER TABLE `comunidad_uptm`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `ID_componenteplan` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
 
 --
 -- AUTO_INCREMENT de la tabla `consumo_plan`
 --
 ALTER TABLE `consumo_plan`
-  MODIFY `ID_consumo` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `ID_consumo` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT de la tabla `contrato_cuotas`
+--
+ALTER TABLE `contrato_cuotas`
+  MODIFY `id_cuota` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT de la tabla `contrato_plan`
 --
 ALTER TABLE `contrato_plan`
-  MODIFY `ID_contrato` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `ID_contrato` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `especialidades`
@@ -1070,7 +1011,7 @@ ALTER TABLE `especialidades`
 -- AUTO_INCREMENT de la tabla `examenes`
 --
 ALTER TABLE `examenes`
-  MODIFY `ID_examen` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `ID_examen` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT de la tabla `historias_medicas`
@@ -1094,19 +1035,25 @@ ALTER TABLE `medicos`
 -- AUTO_INCREMENT de la tabla `pagos_contrato`
 --
 ALTER TABLE `pagos_contrato`
-  MODIFY `ID_pago` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=82;
+  MODIFY `ID_pago` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `pagos_externos`
 --
 ALTER TABLE `pagos_externos`
-  MODIFY `id_pago_ext` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+  MODIFY `id_pago_ext` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+
+--
+-- AUTO_INCREMENT de la tabla `persona`
+--
+ALTER TABLE `persona`
+  MODIFY `id_persona` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- AUTO_INCREMENT de la tabla `planes`
 --
 ALTER TABLE `planes`
-  MODIFY `ID_planes` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `ID_planes` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT de la tabla `preguntas_seguridad`
@@ -1118,7 +1065,7 @@ ALTER TABLE `preguntas_seguridad`
 -- AUTO_INCREMENT de la tabla `respuestas_seguridad`
 --
 ALTER TABLE `respuestas_seguridad`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=67;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75;
 
 --
 -- AUTO_INCREMENT de la tabla `roles`
@@ -1136,7 +1083,7 @@ ALTER TABLE `tipos_externos`
 -- AUTO_INCREMENT de la tabla `usuarios`
 --
 ALTER TABLE `usuarios`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
 
 --
 -- Restricciones para tablas volcadas
@@ -1146,14 +1093,14 @@ ALTER TABLE `usuarios`
 -- Filtros para la tabla `afiliados`
 --
 ALTER TABLE `afiliados`
-  ADD CONSTRAINT `relacion` FOREIGN KEY (`cedula`) REFERENCES `persona` (`cedula`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `fk_afiliados_persona` FOREIGN KEY (`id_persona`) REFERENCES `persona` (`id_persona`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `beneficiarios`
 --
 ALTER TABLE `beneficiarios`
-  ADD CONSTRAINT `beneficiarios_ibfk_1` FOREIGN KEY (`cedula`) REFERENCES `persona` (`cedula`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `dependencia` FOREIGN KEY (`cedula_afil`) REFERENCES `afiliados` (`ID`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `dependencia` FOREIGN KEY (`id_afiliado`) REFERENCES `afiliados` (`ID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_beneficiarios_persona` FOREIGN KEY (`id_persona`) REFERENCES `persona` (`id_persona`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `bitacora`
@@ -1165,21 +1112,8 @@ ALTER TABLE `bitacora`
 -- Filtros para la tabla `citas`
 --
 ALTER TABLE `citas`
-  ADD CONSTRAINT `citas_ibfk_1` FOREIGN KEY (`id_especialidad`) REFERENCES `especialidades` (`id_especialidad`);
-
---
--- Filtros para la tabla `citas_afil`
---
-ALTER TABLE `citas_afil`
-  ADD CONSTRAINT `citas_afil_ibfk_1` FOREIGN KEY (`idcita`) REFERENCES `citas` (`id_cita`) ON DELETE CASCADE,
-  ADD CONSTRAINT `citas_afil_ibfk_2` FOREIGN KEY (`id_afiliado`) REFERENCES `afiliados` (`ID`) ON DELETE CASCADE;
-
---
--- Filtros para la tabla `citas_benef`
---
-ALTER TABLE `citas_benef`
-  ADD CONSTRAINT `citas_benef_ibfk_1` FOREIGN KEY (`idcita`) REFERENCES `citas` (`id_cita`) ON DELETE CASCADE,
-  ADD CONSTRAINT `citas_benef_ibfk_2` FOREIGN KEY (`id_beneficiario`) REFERENCES `beneficiarios` (`ID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `citas_ibfk_1` FOREIGN KEY (`id_especialidad`) REFERENCES `especialidades` (`id_especialidad`),
+  ADD CONSTRAINT `fk_citas_persona` FOREIGN KEY (`id_persona`) REFERENCES `persona` (`id_persona`) ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `citas_examenes`
@@ -1187,13 +1121,6 @@ ALTER TABLE `citas_benef`
 ALTER TABLE `citas_examenes`
   ADD CONSTRAINT `citas_examenes_ibfk_1` FOREIGN KEY (`id_cita`) REFERENCES `citas` (`id_cita`) ON DELETE CASCADE,
   ADD CONSTRAINT `citas_examenes_ibfk_2` FOREIGN KEY (`id_examen`) REFERENCES `examenes` (`ID_examen`);
-
---
--- Filtros para la tabla `citas_uptm`
---
-ALTER TABLE `citas_uptm`
-  ADD CONSTRAINT `citas_uptm_ibfk_1` FOREIGN KEY (`idcita`) REFERENCES `citas` (`id_cita`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `citas_uptm_ibfk_2` FOREIGN KEY (`id_externo`) REFERENCES `comunidad_uptm` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `componentes_planes`
@@ -1204,26 +1131,27 @@ ALTER TABLE `componentes_planes`
   ADD CONSTRAINT `fk_componente_categoria` FOREIGN KEY (`id_categoria_componente`) REFERENCES `categorias_examenes` (`id_categoria`) ON DELETE CASCADE;
 
 --
--- Filtros para la tabla `comunidad_uptm`
---
-ALTER TABLE `comunidad_uptm`
-  ADD CONSTRAINT `fk_comunidad_tipo` FOREIGN KEY (`id_tipo_ext`) REFERENCES `tipos_externos` (`id_tipos_ext`);
-
---
 -- Filtros para la tabla `consumo_plan`
 --
 ALTER TABLE `consumo_plan`
   ADD CONSTRAINT `consumo_plan_ibfk_1` FOREIGN KEY (`ID_contrato_plan`) REFERENCES `contrato_plan` (`ID_contrato`),
-  ADD CONSTRAINT `consumo_plan_ibfk_2` FOREIGN KEY (`ID_persona_plan`) REFERENCES `persona` (`cedula`),
   ADD CONSTRAINT `consumo_plan_ibfk_3` FOREIGN KEY (`ID_examen_plan`) REFERENCES `examenes` (`ID_examen`),
-  ADD CONSTRAINT `fk_consumo_cita` FOREIGN KEY (`id_cita`) REFERENCES `citas` (`id_cita`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_consumo_cita` FOREIGN KEY (`id_cita`) REFERENCES `citas` (`id_cita`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_consumo_persona` FOREIGN KEY (`id_persona`) REFERENCES `persona` (`id_persona`) ON UPDATE CASCADE;
+
+--
+-- Filtros para la tabla `contrato_cuotas`
+--
+ALTER TABLE `contrato_cuotas`
+  ADD CONSTRAINT `fk_cuota_contrato` FOREIGN KEY (`id_contrato`) REFERENCES `contrato_plan` (`ID_contrato`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_cuota_pago` FOREIGN KEY (`id_pago`) REFERENCES `pagos_contrato` (`ID_pago`) ON DELETE SET NULL;
 
 --
 -- Filtros para la tabla `contrato_plan`
 --
 ALTER TABLE `contrato_plan`
   ADD CONSTRAINT `contrato_plan_ibfk_1` FOREIGN KEY (`ID_planes_contrato`) REFERENCES `planes` (`ID_planes`),
-  ADD CONSTRAINT `contrato_plan_ibfk_2` FOREIGN KEY (`ID_afiliado_contrato`) REFERENCES `afiliados` (`cedula`);
+  ADD CONSTRAINT `fk_contrato_persona` FOREIGN KEY (`id_persona`) REFERENCES `persona` (`id_persona`) ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `examenes`
