@@ -1,4 +1,7 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 require_once 'C:/xampp/htdocs/IPSPUPTM/vendor/autoload.php';
 include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
 
@@ -29,9 +32,9 @@ $query_beneficiarios = "
         CONCAT(pa.nombre, ' ', pa.apellido) AS afiliado_nombre_completo,
         b.created_at
     FROM beneficiarios b
-    JOIN persona p ON b.cedula = p.cedula
-    JOIN afiliados a ON b.cedula_afil = a.id
-    JOIN persona pa ON a.cedula = pa.cedula
+    JOIN persona p ON b.id_persona = p.id_persona
+    JOIN afiliados a ON b.id_afiliado = a.id
+    JOIN persona pa ON a.id_persona = pa.id_persona
     ORDER BY b.created_at DESC
 ";
 

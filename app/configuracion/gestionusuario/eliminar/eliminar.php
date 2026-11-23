@@ -1,8 +1,11 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1]);
 require 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
 include 'C:/xampp/htdocs/IPSPUPTM/app/configuracion/bitacora/bitacora.php';
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 if (isset($_POST['id'])) {
     $id = intval($_POST['id']);

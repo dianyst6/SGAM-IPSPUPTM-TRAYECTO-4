@@ -1,4 +1,7 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 require_once 'C:/xampp/htdocs/IPSPUPTM/vendor/autoload.php'; // Autoload de Composer
 include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
 
@@ -27,8 +30,8 @@ $sql = "SELECT
             a.updated_at  
         FROM  
             afiliados a  
-        JOIN  
-            persona p ON a.cedula = p.cedula";
+        JOIN
+            persona p ON a.id_persona = p.id_persona";
 
 $resultado = $conn->query($sql);
 

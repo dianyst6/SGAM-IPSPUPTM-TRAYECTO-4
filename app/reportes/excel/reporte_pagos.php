@@ -1,4 +1,7 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 require_once 'C:/xampp/htdocs/IPSPUPTM/vendor/autoload.php';
 include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
 
@@ -25,6 +28,12 @@ if (isset($_GET['fecha_inicio']) && isset($_GET['fecha_fin'])) {
     $condicion_fecha_externo = "WHERE p.fecha_pago BETWEEN '$fecha_inicio' AND '$fecha_fin'";
     $titulo .= " - Del " . date('d/m/Y', strtotime($fecha_inicio)) . " al " . date('d/m/Y', strtotime($fecha_fin));
 }
+
+// Los pagos externos corresponden solo a Comunidad UPTM (personas sin rol).
+$filtro_rol_externo = "a_u.id_persona IS NULL AND b_u.id_persona IS NULL";
+$where_externo = $condicion_fecha_externo === ''
+    ? "WHERE $filtro_rol_externo"
+    : $condicion_fecha_externo . " AND $filtro_rol_externo";
 
 // Crear un nuevo Spreadsheet
 $spreadsheet = new Spreadsheet();
@@ -102,8 +111,7 @@ if ($tipo_pago == 'contrato') {
                 SUM(pc.monto_cuota)                        AS monto_mes
             FROM pagos_contrato pc
             INNER JOIN contrato_plan cp ON pc.ID_contrato = cp.ID_contrato
-            INNER JOIN afiliados af    ON cp.ID_afiliado_contrato = af.cedula
-            INNER JOIN persona p       ON af.cedula = p.cedula
+            INNER JOIN persona p       ON p.id_persona = cp.id_persona
             $condicion_fecha_contrato
             GROUP BY p.cedula, p.apellido, p.nombre, YEAR(pc.fecha_pago), MONTH(pc.fecha_pago)
             ORDER BY p.apellido, p.nombre, anio, mes";
@@ -237,10 +245,11 @@ if ($tipo_pago == 'contrato') {
                 CONCAT(u.nombre, ' ', u.apellido) AS nombre_paciente
             FROM pagos_externos p
             INNER JOIN citas c         ON p.id_cita = c.id_cita
-            INNER JOIN citas_uptm h    ON c.id_cita = h.idcita
-            INNER JOIN comunidad_uptm u ON h.id_externo = u.id
+            INNER JOIN persona u       ON u.id_persona = c.id_persona
             INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
-            $condicion_fecha_externo
+            LEFT JOIN afiliados a_u    ON a_u.id_persona = u.id_persona
+            LEFT JOIN beneficiarios b_u ON b_u.id_persona = u.id_persona
+            $where_externo
             ORDER BY p.fecha_pago DESC";
 
     $resultado = $conn->query($sql);

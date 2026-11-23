@@ -30,14 +30,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Si el formulario envía "interno", verificamos la tabla real
             if ($tipo_paciente === 'interno') {
                 // 1. ¿Es Afiliado?
-                $checkAfil = $conn->prepare("SELECT cedula FROM afiliados WHERE cedula = ?");
+                $checkAfil = $conn->prepare("SELECT p.id_persona FROM afiliados a JOIN persona p ON p.id_persona = a.id_persona WHERE p.cedula = ?");
                 $checkAfil->bind_param("i", $ci_paciente);
                 $checkAfil->execute();
                 if ($checkAfil->get_result()->num_rows > 0) {
                     $tipo_paciente = 'afiliado';
                 } else {
                     // 2. ¿Es Beneficiario?
-                    $checkBenef = $conn->prepare("SELECT cedula FROM beneficiarios WHERE cedula = ?");
+                    $checkBenef = $conn->prepare("SELECT p.id_persona FROM beneficiarios b JOIN persona p ON p.id_persona = b.id_persona WHERE p.cedula = ?");
                     $checkBenef->bind_param("i", $ci_paciente);
                     $checkBenef->execute();
                     if ($checkBenef->get_result()->num_rows > 0) {

@@ -3,9 +3,18 @@ session_start();
 require_once 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header("Location: /IPSPUPTM/vistas/recuperar_contrasena.php");
+    header("Location: /IPSPUPTM/vistas/recuperar_contraseña.php");
     exit();
 }
+
+// Un nuevo proceso de recuperación descarta cualquier autorización previa
+unset(
+    $_SESSION['reset_autorizado'],
+    $_SESSION['reset_user_id'],
+    $_SESSION['reset_expira'],
+    $_SESSION['reset_intentos'],
+    $_SESSION['reset_error']
+);
 
 $username = $_POST['username'];
 
@@ -60,21 +69,21 @@ if ($stmt_usuario) {
         } else {
             $_SESSION['mensaje_alertify'] = "Este usuario no tiene preguntas de seguridad configuradas.";
             $_SESSION['tipo_alertify'] = "warning";
-            header("Location: /IPSPUPTM/vistas/recuperar_contrasena.php");
+            header("Location: /IPSPUPTM/vistas/recuperar_contraseña.php");
             exit();
         }
         $stmt_preguntas->close();
     } else {
         $_SESSION['mensaje_alertify'] = "El nombre de usuario no existe.";
         $_SESSION['tipo_alertify'] = "error";
-        header("Location: /IPSPUPTM/vistas/recuperar_contrasena.php");
+        header("Location: /IPSPUPTM/vistas/recuperar_contraseña.php");
         exit();
     }
     $stmt_usuario->close();
 } else {
     $_SESSION['mensaje_alertify'] = "Error interno, intenta más tarde.";
     $_SESSION['tipo_alertify'] = "error";
-    header("Location: /IPSPUPTM/vistas/recuperar_contrasena.php");
+    header("Location: /IPSPUPTM/vistas/recuperar_contraseña.php");
     exit();
 }
 ?>

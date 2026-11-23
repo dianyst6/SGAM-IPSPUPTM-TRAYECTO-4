@@ -15,26 +15,15 @@ if (isset($_POST['id_cita'])) {
         $sql_info_cita = "
             SELECT c.id_cita, c.fecha_cita, c.descripcion, e.nombre_especialidad,
                 CASE 
-                    WHEN ca.idcita IS NOT NULL THEN 'Afiliado'
-                    WHEN cb.idcita IS NOT NULL THEN 'Beneficiario'
-                    WHEN cu.idcita IS NOT NULL THEN 'Comunidad UPTM'
-                    ELSE 'Desconocido'
+                    WHEN a.ID IS NOT NULL THEN 'Afiliado'
+                    WHEN b.id_beneficiario IS NOT NULL THEN 'Beneficiario'
+                    ELSE 'Comunidad UPTM'
                 END AS tipo_paciente,
-                CASE 
-                    WHEN ca.idcita IS NOT NULL THEN CONCAT(p_a.nombre, ' ', p_a.apellido)
-                    WHEN cb.idcita IS NOT NULL THEN CONCAT(p_b.nombre, ' ', p_b.apellido)
-                    WHEN cu.idcita IS NOT NULL THEN CONCAT(com.nombre, ' ', com.apellido)
-                    ELSE 'No especificado'
-                END AS nombre_paciente
+                CONCAT(p.nombre, ' ', p.apellido) AS nombre_paciente
             FROM citas c
-            LEFT JOIN citas_afil ca ON c.id_cita = ca.idcita
-            LEFT JOIN afiliados a ON ca.id_afiliado = a.id
-            LEFT JOIN persona p_a ON a.cedula = p_a.cedula
-            LEFT JOIN citas_benef cb ON c.id_cita = cb.idcita
-            LEFT JOIN beneficiarios b ON cb.id_beneficiario = b.id
-            LEFT JOIN persona p_b ON b.cedula = p_b.cedula
-            LEFT JOIN citas_uptm cu ON c.id_cita = cu.idcita
-            LEFT JOIN comunidad_uptm com ON cu.id_externo = com.id
+            INNER JOIN persona p ON p.id_persona = c.id_persona
+            LEFT JOIN afiliados a     ON a.id_persona = p.id_persona
+            LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona
             LEFT JOIN especialidades e ON c.id_especialidad = e.id_especialidad
             WHERE c.id_cita = ?
         ";

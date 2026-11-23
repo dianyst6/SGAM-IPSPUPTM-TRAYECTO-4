@@ -99,18 +99,20 @@
                 <option value="" selected disabled>Escriba para buscar...</option>
                 <?php
                 $sql_pacientes = "
-                SELECT a.id AS id_pac_val, p.cedula, CONCAT(p.nombre, ' ', p.apellido, ' - (Afiliado)') AS nombre_completo 
-                FROM afiliados a 
-                JOIN persona p ON a.cedula = p.cedula
-                JOIN contrato_plan cp ON cp.ID_afiliado_contrato = a.cedula
-                WHERE cp.estado_contrato = 'Activo'
+                SELECT p.id_persona AS id_pac_val, p.cedula,
+                       CONCAT(p.nombre, ' ', p.apellido, ' - (Afiliado)') AS nombre_completo
+                FROM afiliados a
+                JOIN persona p ON a.id_persona = p.id_persona
+                JOIN contrato_plan cp ON cp.id_persona = a.id_persona
+                WHERE cp.fecha_fin >= CURDATE() AND cp.estado_contrato <> 'Inactivo'
                 UNION
-                SELECT b.id AS id_pac_val, p.cedula, CONCAT(p.nombre, ' ', p.apellido, ' - (Beneficiario)') AS nombre_completo 
-                FROM beneficiarios b 
-                JOIN persona p ON b.cedula = p.cedula
-                JOIN afiliados a ON b.cedula_afil = a.ID
-                JOIN contrato_plan cp ON cp.ID_afiliado_contrato = a.cedula
-                WHERE cp.estado_contrato = 'Activo' 
+                SELECT p.id_persona AS id_pac_val, p.cedula,
+                       CONCAT(p.nombre, ' ', p.apellido, ' - (Beneficiario)') AS nombre_completo
+                FROM beneficiarios b
+                JOIN persona p ON b.id_persona = p.id_persona
+                JOIN afiliados a ON b.id_afiliado = a.ID
+                JOIN contrato_plan cp ON cp.id_persona = a.id_persona
+                WHERE cp.fecha_fin >= CURDATE() AND cp.estado_contrato <> 'Inactivo'
                 AND NOT (b.parentesco = 'Hijo' AND TIMESTAMPDIFF(YEAR, p.fechanacimiento, CURDATE()) >= 25)
                 ORDER BY nombre_completo ASC";
                 $result_pacientes = $conn->query($sql_pacientes);
@@ -341,15 +343,20 @@ window.abrirModalNuevoExamen = function() {
                 tituloAlerta.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Verificando póliza...';
                 textoAlerta.innerText = "Consultando saldos disponibles.";
                 btnGuardarCita.disabled = true;
+
+                const fechaInput = document.getElementById('fecha_cita');
+                const fechaConsulta = fechaInput && fechaInput.value ? fechaInput.value.slice(0, 10) : '';
+                const parametroFecha = fechaConsulta ? `&fecha=${fechaConsulta}` : '';
                 
-                fetch(`/IPSPUPTM/app/pagos/get_afiliado_plan_limits.php?cedula=${valCed}`)
+                fetch(`/IPSPUPTM/app/pagos/get_afiliado_plan_limits.php?cedula=${valCed}${parametroFecha}`)
                     .then(r => r.json())
                     .then(data => {
                         alertaSaldo.classList.remove('alert-info');
                         if (data.success) {
                             const afil = data.afiliado;
-                            const saldo = afil.saldo_disponible;
+                            const saldo = parseFloat(afil.saldo_disponible) || 0;
                             const plan = afil.plan;
+                            const motivo = afil.motivo || '';
                             
                             const contSaldo = document.getElementById('cont-saldo-disponible-cita');
                             const valSaldo = document.getElementById('saldo-disponible-cita');
@@ -363,23 +370,33 @@ window.abrirModalNuevoExamen = function() {
                             if (!afil.pago_inicial_ok) {
                                 alertaSaldo.classList.add('alert-danger');
                                 tituloAlerta.innerHTML = '<i class="fas fa-hand-holding-usd me-2"></i>Póliza Inactiva';
-                                textoAlerta.innerHTML = `<strong>Debe realizar el pago inicial (30%)</strong> para activar los beneficios del plan "${plan}".<br><span class="fw-bold fs-6">No es posible agendar citas hasta completar este pago.</span>`;
+                                textoAlerta.innerHTML = `<strong>Debe completar el pago inicial (30%)</strong> para activar los beneficios del plan "${plan}".<br><span class="fw-bold fs-6">${motivo}</span>`;
                                 btnGuardarCita.disabled = true;
                                 if (selectEspecialidad) selectEspecialidad.disabled = true;
                                 return;
                             }
 
-                            // 2. Verificar Solvencia (Deuda)
+                            // 2. Verificar Solvencia (cuotas vencidas)
                             if (!afil.solvente) {
                                 alertaSaldo.classList.add('alert-danger');
                                 tituloAlerta.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>Paciente Insolvente';
-                                textoAlerta.innerHTML = `El afiliado tiene una deuda de <strong>${afil.meses_deuda} meses</strong>.<br><span class="fw-bold fs-6">Debe ponerse al día (máximo 2 meses de deuda) para usar el plan "${plan}".</span>`;
+                                textoAlerta.innerHTML = `El afiliado tiene <strong>${afil.cuotas_vencidas} cuotas vencidas</strong>.<br><span class="fw-bold fs-6">Debe ponerse al día (máximo 2 cuotas vencidas) para usar el plan "${plan}".</span>`;
                                 btnGuardarCita.disabled = true;
                                 if (selectEspecialidad) selectEspecialidad.disabled = true;
                                 return;
                             }
 
-                            // 3. Verificar Saldo Disponible
+                            // 3. Cobertura general (vigencia por fechas)
+                            if (!afil.cobertura_activa) {
+                                alertaSaldo.classList.add('alert-danger');
+                                tituloAlerta.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Cobertura No Activa';
+                                textoAlerta.innerHTML = `<strong>${motivo}</strong>`;
+                                btnGuardarCita.disabled = true;
+                                if (selectEspecialidad) selectEspecialidad.disabled = true;
+                                return;
+                            }
+
+                            // 4. Verificar Saldo Disponible
                             if (saldo <= 0) {
                                 alertaSaldo.classList.add('alert-danger');
                                 tituloAlerta.innerHTML = '<i class="fas fa-ban me-2"></i>Póliza Agotada';
@@ -396,7 +413,7 @@ window.abrirModalNuevoExamen = function() {
                         } else {
                             alertaSaldo.classList.add('alert-danger');
                             tituloAlerta.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Error de Póliza';
-                            textoAlerta.innerHTML = `No se halló un contrato activo para este afiliado. Debe registrarlo como Externo.`;
+                            textoAlerta.innerHTML = data.message || 'No se halló un contrato vigente para este afiliado. Debe registrarlo como Externo.';
                             btnGuardarCita.disabled = true;
                             if (selectEspecialidad) selectEspecialidad.disabled = true;
                         }
@@ -442,7 +459,12 @@ window.abrirModalNuevoExamen = function() {
                     return;
                 }
     
-                fetch(`/IPSPUPTM/app/citas/get_examenes.php?id_especialidad=${idEsp}&tipo_pac=${tipoPac}&id_paciente=${idPac}`)
+                const fechaCitaInput = document.getElementById('fecha_cita');
+                const fechaParametro = fechaCitaInput && fechaCitaInput.value
+                    ? `&fecha=${fechaCitaInput.value.slice(0, 10)}`
+                    : '';
+
+                fetch(`/IPSPUPTM/app/citas/get_examenes.php?id_especialidad=${idEsp}&tipo_pac=${tipoPac}&id_paciente=${idPac}${fechaParametro}`)
                     .then(r => r.json())
                     .then(data => {
                         listaExamenes.innerHTML = '';
@@ -450,13 +472,19 @@ window.abrirModalNuevoExamen = function() {
                             data.forEach(ex => {
                                 const disableAttr = ex.is_disabled ? 'disabled' : '';
                                 const txtClass = ex.is_disabled ? 'text-muted text-decoration-line-through' : '';
-                                const infoDisp = ex.disponibles === 'ilimitado' ? '' : (ex.is_disabled ? '(Agotado)' : `(Restan: ${ex.disponibles})`);
+                                const etiquetaBloqueo = ex.etiqueta_bloqueo || 'Agotado';
+                                const infoDisp = ex.is_disabled
+                                    ? `(${etiquetaBloqueo})`
+                                    : (ex.disponibles === 'ilimitado' ? '' : `(Restan: ${ex.disponibles})`);
+                                const tituloBloqueo = (ex.is_disabled && ex.motivo_bloqueo)
+                                    ? ` title="${ex.motivo_bloqueo}"`
+                                    : '';
 
                                 const div = document.createElement('div');
                                 div.className = 'form-check';
                                 div.innerHTML = `
                                     <input class="form-check-input check-examen" type="radio" name="examenes[]" value="${ex.ID_examen}" id="ex_${ex.ID_examen}" data-precio="${ex.precio}" ${disableAttr} required>
-                                    <label class="form-check-label ${txtClass}" for="ex_${ex.ID_examen}">
+                                    <label class="form-check-label ${txtClass}" for="ex_${ex.ID_examen}"${tituloBloqueo}>
                                         ${ex.nombre_examen} - <span class="${ex.is_disabled ? 'text-muted' : 'text-primary'}">$${ex.precio}</span> <small class="text-danger fw-bold ms-2">${infoDisp}</small>
                                     </label>
                                 `;
@@ -543,7 +571,15 @@ window.abrirModalNuevoExamen = function() {
         };
 
         if (inputFechaCita) {
-            inputFechaCita.addEventListener('change', validarDisponibilidad);
+            inputFechaCita.addEventListener('change', function() {
+                validarDisponibilidad();
+                if (selector.value === 'interno' && iHidden.value) {
+                    revisarSaldoPoliza(false);
+                    if (selectEspecialidad && selectEspecialidad.value) {
+                        selectEspecialidad.dispatchEvent(new Event('change'));
+                    }
+                }
+            });
         }
  
         // --- 2. BÚSQUEDA EN TIEMPO REAL (EXTERNOS) ---

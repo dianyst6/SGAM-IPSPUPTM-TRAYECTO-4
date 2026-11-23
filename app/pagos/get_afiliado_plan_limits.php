@@ -1,166 +1,155 @@
-
 <?php
+/**
+ * app/pagos/get_afiliado_plan_limits.php
+ *
+ * Cobertura real de un afiliado o beneficiario para una fecha determinada.
+ * La cédula se resuelve a id_persona; el contrato se busca por el titular
+ * del grupo familiar y la vigencia se valida por fechas.
+ */
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
+include 'C:/xampp/htdocs/IPSPUPTM/config/plan_helper.php';
 
-$cedula = isset($_GET['cedula']) ? mysqli_real_escape_string($conn, $_GET['cedula']) : '';
+header('Content-Type: application/json; charset=utf-8');
 
-if (empty($cedula)) {
-    echo json_encode(['success' => false, 'message' => 'Cédula no proporcionada']);
+$responder = static function (array $datos, int $codigo = 200): void {
+    http_response_code($codigo);
+    echo json_encode($datos, JSON_UNESCAPED_UNICODE);
     exit;
+};
+
+$cedula = trim((string) ($_GET['cedula'] ?? ''));
+if ($cedula === '') {
+    $responder(['success' => false, 'message' => 'Cédula no proporcionada.'], 400);
 }
 
-// 1. Buscar si la cédula pertenece a un afiliado o beneficiario
-$sql_persona = "SELECT p.cedula, p.nombre, p.apellido, 'Afiliado' as tipo, a.ID as id_vinculo 
-                FROM persona p 
-                JOIN afiliados a ON p.cedula = a.cedula 
-                WHERE p.cedula = '$cedula'
-                UNION
-                SELECT p.cedula, p.nombre, p.apellido, 'Beneficiario' as tipo, b.ID as id_vinculo 
-                FROM persona p 
-                JOIN beneficiarios b ON p.cedula = b.cedula 
-                WHERE p.cedula = '$cedula'";
-
-$res_persona = mysqli_query($conn, $sql_persona);
-$persona = mysqli_fetch_assoc($res_persona);
-
-if (!$persona) {
-    echo json_encode(['success' => false, 'message' => 'Persona no encontrada o no es un afiliado/beneficiario']);
-    exit;
+$fecha = (string) ($_GET['fecha'] ?? planHoy());
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || !checkdate(
+    (int) substr($fecha, 5, 2),
+    (int) substr($fecha, 8, 2),
+    (int) substr($fecha, 0, 4)
+)) {
+    $fecha = planHoy();
 }
 
-$id_persona = $persona['cedula'];
-$id_vinculo = $persona['id_vinculo'];
-$tipo = $persona['tipo'];
+$stmt = $conn->prepare(
+    "SELECT p.id_persona, p.cedula, p.nombre, p.apellido,
+            CASE
+                WHEN a.ID IS NOT NULL THEN 'Afiliado'
+                WHEN b.id_beneficiario IS NOT NULL THEN 'Beneficiario'
+                ELSE NULL
+            END AS tipo
+     FROM persona p
+     LEFT JOIN afiliados a     ON a.id_persona = p.id_persona
+     LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona
+     WHERE p.cedula = ?
+     LIMIT 1"
+);
+if (!$stmt) {
+    $responder(['success' => false, 'message' => 'No se pudo consultar la persona.'], 500);
+}
+$stmt->bind_param('s', $cedula);
+$stmt->execute();
+$persona = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-// 2. Obtener el contrato activo (Si es beneficiario, buscar contrato del titular)
-if ($tipo == 'Beneficiario') {
-    $sql_titular = "SELECT cedula_afil FROM beneficiarios WHERE ID = '$id_vinculo'";
-    $res_titular = mysqli_query($conn, $sql_titular);
-    $id_titular_vinculo = mysqli_fetch_assoc($res_titular)['cedula_afil'];
-    
-    $sql_contrato = "SELECT cp.ID_contrato, cp.fecha_inicio, cp.monto_total, p.nombre_plan, p.ID_planes, p.monto_cobertura 
-                     FROM contrato_plan cp 
-                     JOIN planes p ON cp.ID_planes_contrato = p.ID_planes 
-                     JOIN afiliados a ON cp.ID_afiliado_contrato = a.cedula
-                     WHERE a.ID = '$id_titular_vinculo' AND cp.estado_contrato = 'Activo'";
-} else {
-    $sql_contrato = "SELECT cp.ID_contrato, cp.fecha_inicio, cp.monto_total, p.nombre_plan, p.ID_planes, p.monto_cobertura 
-                     FROM contrato_plan cp 
-                     JOIN planes p ON cp.ID_planes_contrato = p.ID_planes 
-                     WHERE cp.ID_afiliado_contrato = '$cedula' AND cp.estado_contrato = 'Activo'";
+if (!$persona || empty($persona['tipo'])) {
+    $responder([
+        'success' => false,
+        'message' => 'Persona no encontrada o no es un afiliado/beneficiario.',
+    ], 404);
 }
 
-$res_contrato = mysqli_query($conn, $sql_contrato);
-$contrato = mysqli_fetch_assoc($res_contrato);
+$idPersona = (int) $persona['id_persona'];
+$cobertura = contratoValidarCobertura($conn, $idPersona, $fecha);
 
-if (!$contrato) {
-    echo json_encode(['success' => false, 'message' => 'No tiene un contrato de plan de salud activo']);
-    exit;
+if ($cobertura['contrato'] === null || $cobertura['resumen'] === null) {
+    $responder([
+        'success' => false,
+        'message' => $cobertura['motivo'],
+        'fecha_consulta' => $fecha,
+    ], 404);
 }
 
-$id_contrato = $contrato['ID_contrato'];
-$id_plan = $contrato['ID_planes'];
-$fecha_inicio = $contrato['fecha_inicio'];
+$contrato = $cobertura['contrato'];
+$resumen  = $cobertura['resumen'];
+$plan     = $cobertura['plan'];
+$idContrato = (int) $contrato['ID_contrato'];
+$idPlan     = (int) $contrato['ID_planes_contrato'];
 
-// 2.1 Verificar Pago Inicial y Solvencia
-
-// Verificar si el plan está totalmente pagado
-$sql_pagos_totales = "SELECT SUM(monto_cuota) as total_pagado FROM pagos_contrato WHERE ID_contrato = '$id_contrato'";
-$res_pagos_totales = mysqli_query($conn, $sql_pagos_totales);
-$total_pagado = mysqli_fetch_assoc($res_pagos_totales)['total_pagado'] ?? 0;
-$monto_total_contrato = $contrato['monto_total'] ?? 0;
-
-$plan_solventado = ($monto_total_contrato > 0 && floatval($total_pagado) >= floatval($monto_total_contrato));
-
-if ($plan_solventado) {
-    $pago_inicial_ok = true;
-    $solvente = true;
-    $meses_deuda = 0;
-} else {
-    // A. Pago Inicial (30%)
-    $sql_pago_inicial = "SELECT COUNT(*) as cuenta FROM pagos_contrato WHERE ID_contrato = '$id_contrato' AND tipo_pago = 'Pago Inicial'";
-    $res_pago_inicial = mysqli_query($conn, $sql_pago_inicial);
-    $pago_inicial_ok = (mysqli_fetch_assoc($res_pago_inicial)['cuenta'] > 0);
-
-    // B. Solvencia (Meses de deuda)
-    // El conteo de cuotas empieza 3 meses después de la fecha de inicio del contrato
-    $fecha_inicio_cuotas = new DateTime($fecha_inicio);
-    $fecha_inicio_cuotas->modify('+3 months');
-    $hoy = new DateTime();
-
-    // Si todavía no han pasado 3 meses desde el inicio, no hay cuotas pendientes
-    if ($hoy <= $fecha_inicio_cuotas) {
-        $meses_transcurridos = 0;
-    } else {
-        $interval = $fecha_inicio_cuotas->diff($hoy);
-        $meses_transcurridos = ($interval->y * 12) + $interval->m + 1; // +1 porque el mes actual cuenta
-    }
-
-    // Contamos cuántas cuotas ha pagado
-    $sql_cuotas = "SELECT COUNT(*) as cuenta FROM pagos_contrato WHERE ID_contrato = '$id_contrato' AND tipo_pago = 'Cuota'";
-    $res_cuotas = mysqli_query($conn, $sql_cuotas);
-    $cuotas_pagadas = mysqli_fetch_assoc($res_cuotas)['cuenta'];
-
-    $meses_deuda = $meses_transcurridos - $cuotas_pagadas;
-    if ($meses_deuda < 0) $meses_deuda = 0;
-
-    // Si ya venció el periodo de gracia (meses_transcurridos > 0) pero no ha pagado NINGUNA cuota,
-    // se le bloquea de inmediato (cero tolerancia si nunca ha empezado a pagar).
-    // Si ya tiene al menos una cuota pagada, se le permite la tolerancia normal de hasta 2 meses de deuda.
-    if ($meses_transcurridos > 0 && $cuotas_pagadas == 0) {
-        $solvente = false;
-    } else {
-        $solvente = ($meses_deuda <= 2); // Máximo 2 meses de deuda permitidos
-    }
-}
-
-// 3. Obtener límites de categorías y consumo actual
-$sql_categorias = "SELECT c.id_categoria, c.nombre_categoria, cp_comp.monto_maximo 
-                   FROM componentes_planes cp_comp 
-                   JOIN categorias_examenes c ON cp_comp.id_categoria_componente = c.id_categoria 
-                   WHERE cp_comp.ID_planes_componentes = '$id_plan' AND cp_comp.id_categoria_componente IS NOT NULL";
-
-$res_cats = mysqli_query($conn, $sql_categorias);
+// Límites por categoría y consumo real del contrato.
 $categorias = [];
+$stmt = $conn->prepare(
+    "SELECT comp.id_categoria_componente AS id_categoria,
+            cat.nombre_categoria,
+            comp.cantidad_maxima,
+            comp.monto_maximo
+     FROM componentes_planes comp
+     INNER JOIN categorias_examenes cat
+             ON cat.id_categoria = comp.id_categoria_componente
+     WHERE comp.ID_planes_componentes = ?
+       AND comp.id_categoria_componente IS NOT NULL
+     ORDER BY cat.nombre_categoria ASC"
+);
+if ($stmt) {
+    $stmt->bind_param('i', $idPlan);
+    $stmt->execute();
+    $resultado = $stmt->get_result();
+    while ($fila = $resultado->fetch_assoc()) {
+        $idCategoria = (int) $fila['id_categoria'];
+        // El modal externo controla dinero; la cantidad es un cupo interno.
+        $consumoInterno = planConsumoCategoria($conn, $idContrato, $idCategoria, 'interno');
+        $consumoExterno = planConsumoCategoria($conn, $idContrato, $idCategoria, 'externo');
+        $limiteMonto = round((float) $fila['monto_maximo'], 2);
+        $limiteCantidad = $fila['cantidad_maxima'] !== null
+            ? (int) $fila['cantidad_maxima']
+            : null;
 
-while ($cat = mysqli_fetch_assoc($res_cats)) {
-    $id_cat = $cat['id_categoria'];
-    
-    // Calcular consumo de esta categoría (Exámenes en el catálogo + Estudios externos)
-    $sql_consumo = "SELECT SUM(monto_descontado) as consumido 
-                    FROM consumo_plan 
-                    WHERE ID_contrato_plan = '$id_contrato' 
-                    AND (
-                        ID_examen_plan IN (SELECT ID_examen FROM examenes WHERE id_categoria = '$id_cat')
-                        OR id_categoria_externa = '$id_cat'
-                    )";
-    $res_consumo = mysqli_query($conn, $sql_consumo);
-    $consumido = mysqli_fetch_assoc($res_consumo)['consumido'] ?? 0;
-    
-    $cat['consumido'] = floatval($consumido);
-    $cat['disponible'] = floatval($cat['monto_maximo']) - floatval($consumido);
-    $categorias[] = $cat;
+        $categorias[] = [
+            'id_categoria' => $idCategoria,
+            'nombre_categoria' => $fila['nombre_categoria'],
+            'monto_maximo' => $limiteMonto,
+            'cantidad_maxima' => $limiteCantidad,
+            'cantidad_consumida' => $consumoInterno['cantidad'],
+            'cantidad_disponible' => $limiteCantidad !== null
+                ? max(0, $limiteCantidad - $consumoInterno['cantidad'])
+                : null,
+            'consumido' => round($consumoExterno['monto'], 2),
+            'disponible' => max(0, round($limiteMonto - $consumoExterno['monto'], 2)),
+        ];
+    }
+    $stmt->close();
 }
 
-$sql_consumo_total = "SELECT SUM(monto_descontado) as total FROM consumo_plan WHERE ID_contrato_plan = '$id_contrato'";
-$res_total = mysqli_query($conn, $sql_consumo_total);
-$total_gastado = mysqli_fetch_assoc($res_total)['total'] ?? 0;
-$saldo_disponible_global = floatval($contrato['monto_cobertura']) - floatval($total_gastado);
-
-echo json_encode([
+$responder([
     'success' => true,
     'afiliado' => [
-        'id_persona' => $id_persona,
-        'nombre' => $persona['nombre'] . ' ' . $persona['apellido'],
-        'tipo' => $tipo,
-        'id_contrato' => $id_contrato,
-        'plan' => $contrato['nombre_plan'],
-        'cobertura_total' => floatval($contrato['monto_cobertura']),
-        'total_gastado' => floatval($total_gastado),
-        'saldo_disponible' => floatval($saldo_disponible_global),
-        'pago_inicial_ok' => $pago_inicial_ok,
-        'solvente' => $solvente,
-        'meses_deuda' => $meses_deuda
+        'id_persona' => $idPersona,
+        'cedula' => $persona['cedula'],
+        'nombre' => trim($persona['nombre'] . ' ' . $persona['apellido']),
+        'tipo' => $persona['tipo'],
+        'id_contrato' => $idContrato,
+        'plan' => $plan['nombre_plan'] ?? '',
+        'anio' => (int) ($contrato['anio'] ?? 0),
+        'fecha_inicio' => $contrato['fecha_inicio'],
+        'fecha_fin' => $contrato['fecha_fin'],
+        'cobertura_total' => $resumen['cobertura'],
+        'total_gastado' => $resumen['consumido'],
+        'saldo_disponible' => $resumen['disponible'],
+        'pago_inicial_ok' => $resumen['inicial_completo'],
+        'inicial_pagado' => $resumen['inicial_pagado'],
+        'inicial_requerido' => $resumen['monto_inicial'],
+        'inicial_pendiente' => $resumen['saldo_inicial'],
+        'solvente' => !$resumen['en_mora'],
+        'meses_deuda' => $resumen['cuotas_vencidas'],
+        'cuotas_vencidas' => $resumen['cuotas_vencidas'],
+        'deuda_vencida' => $resumen['deuda_vencida'],
+        'cobertura_activa' => $cobertura['cobertura_activa'],
+        'vigente' => $cobertura['vigente'],
+        'motivo' => $cobertura['motivo'],
+        'fecha_consulta' => $fecha,
+        'fecha_mora' => $cobertura['fecha_mora'],
     ],
-    'categorias' => $categorias
+    'categorias' => $categorias,
 ]);

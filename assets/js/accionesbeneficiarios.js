@@ -46,6 +46,12 @@ function cargarDatosModal(modal, cedula) {
       if (modal.id === 'editmodal') {
         inputgenero.value = data.genero || '';
 
+        // Mantener sincronizados los datos internos del formulario.
+        const hiddenIdPersona = modal.querySelector('#id_persona');
+        const hiddenCedulaOriginal = modal.querySelector('#cedula_original');
+        if (hiddenIdPersona && data.id_persona) hiddenIdPersona.value = data.id_persona;
+        if (hiddenCedulaOriginal) hiddenCedulaOriginal.value = data.cedula || '';
+
         // Selecciona el afiliado relacionado
         if (selectAfiliado) {
           for (let i = 0; i < selectAfiliado.options.length; i++) {
@@ -54,39 +60,6 @@ function cargarDatosModal(modal, cedula) {
               break;
             }
           }
-        }
-
-        // Agrega el event listener para el formulario de edición aquí
-        const formularioEditarBeneficiario = modal.querySelector('form');
-        if (formularioEditarBeneficiario) {
-          formularioEditarBeneficiario.addEventListener('submit', function(event) {
-            event.preventDefault(); // Previene la recarga de la página
-            console.log("Formulario de edición enviado");
-
-            const formDataEditar = new FormData(formularioEditarBeneficiario);
-
-            fetch('/IPSPUPTM/app/beneficiarios/modales/actualizar/actualizar.php', {  // Asegúrate de que esta ruta es correcta
-              method: 'POST',
-              body: formDataEditar
-            })
-            .then(response => response.json())
-            .then(data => {
-              console.log("Respuesta del servidor:", data);
-              if (data.success) {
-                alertify.message(data.message, 3, function() {
-                  window.location.reload(); // Recarga la página después de la actualización exitosa
-                });
-              } else {
-                alertify.error(data.message); // Muestra el mensaje de error
-              }
-              bootstrap.Modal.getInstance(modal).hide();
-            })
-            .catch(error => {
-              console.error("Error en la petición fetch:", error);
-              alertify.error("Error de red al actualizar.");
-              bootstrap.Modal.getInstance(modal).hide();
-            });
-          });
         }
       }
     }
@@ -106,14 +79,81 @@ if (vermodal) {
 
 // Modal de edición
 let editmodal = document.getElementById('editmodal');
+
+// Último beneficiario seleccionado, para no depender del evento de Bootstrap.
+let beneficiarioEnEdicion = { id_persona: '', cedula: '' };
+
+function sincronizarIdentificadorBeneficiario(boton) {
+  if (!boton) return;
+
+  const idPersona = boton.getAttribute('data-bs-id-persona') || '';
+  const cedula = boton.getAttribute('data-bs-cedula') || '';
+  beneficiarioEnEdicion = { id_persona: idPersona, cedula: cedula };
+
+  if (!editmodal) return;
+  const hiddenIdPersona = editmodal.querySelector('#id_persona');
+  const hiddenCedulaOriginal = editmodal.querySelector('#cedula_original');
+  if (hiddenIdPersona && idPersona) hiddenIdPersona.value = idPersona;
+  if (hiddenCedulaOriginal) hiddenCedulaOriginal.value = cedula;
+}
+
+// Listener delegado: rellena los campos ocultos en cuanto se hace clic en "Editar",
+// aunque Bootstrap no dispare shown.bs.modal.
+document.addEventListener('click', function (event) {
+  const boton = event.target && event.target.closest
+    ? event.target.closest('[data-bs-target="#editmodal"]')
+    : null;
+  if (boton) sincronizarIdentificadorBeneficiario(boton);
+});
+
 if (editmodal) {
     editmodal.addEventListener('shown.bs.modal', event => {
       let button = event.relatedTarget;
-      let cedula = button.getAttribute('data-bs-cedula');
-      cargarDatosModal(editmodal, cedula); // Cargar datos para el modal de edición
+      sincronizarIdentificadorBeneficiario(button);
+      if (button) {
+        cargarDatosModal(editmodal, button.getAttribute('data-bs-cedula'));
+      }
     });
-}
 
+    // Un único listener de envío (evita peticiones duplicadas al abrir el modal varias veces).
+    const formularioEditarBeneficiario = editmodal.querySelector('form');
+    if (formularioEditarBeneficiario) {
+      formularioEditarBeneficiario.addEventListener('submit', function(event) {
+        event.preventDefault(); // Previene la recarga de la página
+        console.log("Formulario de edición enviado");
+
+        // Respaldo: si los campos ocultos quedaron vacíos, usar el botón que abrió el modal.
+        const hiddenIdPersona = formularioEditarBeneficiario.querySelector('[name="id_persona"]');
+        const hiddenCedulaOriginal = formularioEditarBeneficiario.querySelector('[name="cedula_original"]');
+        if (hiddenIdPersona && !hiddenIdPersona.value) hiddenIdPersona.value = beneficiarioEnEdicion.id_persona;
+        if (hiddenCedulaOriginal && !hiddenCedulaOriginal.value) hiddenCedulaOriginal.value = beneficiarioEnEdicion.cedula;
+
+        const formDataEditar = new FormData(formularioEditarBeneficiario);
+
+        fetch('/IPSPUPTM/app/beneficiarios/modales/actualizar/actualizar.php', {
+          method: 'POST',
+          body: formDataEditar
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log("Respuesta del servidor:", data);
+          if (data.success) {
+            alertify.message(data.message, 3, function() {
+              window.location.reload(); // Recarga la página después de la actualización exitosa
+            });
+          } else {
+            alertify.error(data.message); // Muestra el mensaje de error
+          }
+          bootstrap.Modal.getInstance(editmodal).hide();
+        })
+        .catch(error => {
+          console.error("Error en la petición fetch:", error);
+          alertify.error("Error de red al actualizar.");
+          bootstrap.Modal.getInstance(editmodal).hide();
+        });
+      });
+    }
+}
 
 // Modal de eliminación
 const eliminamodal = document.getElementById('eliminamodal');
@@ -131,7 +171,7 @@ if (eliminamodal) {
     });
 
     // Agrega este event listener para manejar el envío del formulario de eliminación
-    const formularioEliminar = eliminamodal.querySelector('form'); // Asegúrate de seleccionar el formulario correcto
+    const formularioEliminar = eliminamodal.querySelector('form');
     if (formularioEliminar) {
         formularioEliminar.addEventListener('submit', function(event) {
             event.preventDefault(); // Previene la recarga de la página
@@ -139,7 +179,7 @@ if (eliminamodal) {
 
             const formData = new FormData(formularioEliminar);
 
-            fetch('/IPSPUPTM/app/beneficiarios/modales/eliminar/eliminar.php', { 
+            fetch('/IPSPUPTM/app/beneficiarios/modales/eliminar/eliminar.php', {
                 method: 'POST',
                 body: formData
             })
@@ -164,29 +204,27 @@ if (eliminamodal) {
     }
 }
 
-
-
 // Filtro de búsqueda en la tabla
-const searchInput = document.getElementById('search'); // Campo de búsqueda
-const tableBody = document.querySelector('.table tbody'); // Cuerpo de la tabla
+const searchInput = document.getElementById('search');
+const tableBody = document.querySelector('.table tbody');
 
-searchInput.addEventListener('keyup', () => {
-  const filter = searchInput.value.toLowerCase(); // Texto ingresado por el usuario
-  const rows = tableBody.getElementsByTagName('tr'); // Filas de la tabla
+if (searchInput && tableBody) {
+    searchInput.addEventListener('keyup', () => {
+      const filter = searchInput.value.toLowerCase();
+      const rows = tableBody.getElementsByTagName('tr');
 
-  for (let i = 0; i < rows.length; i++) {
-    const cells = rows[i].getElementsByTagName('td'); // Celdas de cada fila
-    let match = false;
+      for (let i = 0; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName('td');
+        let match = false;
 
-    // Recorre las celdas de cada fila buscando coincidencias
-    for (let j = 0; j < cells.length; j++) {
-      if (cells[j] && cells[j].textContent.toLowerCase().includes(filter)) {
-        match = true;
-        break;
+        for (let j = 0; j < cells.length; j++) {
+          if (cells[j] && cells[j].textContent.toLowerCase().includes(filter)) {
+            match = true;
+            break;
+          }
+        }
+
+        rows[i].style.display = match ? '' : 'none';
       }
-    }
-
-    // Muestra u oculta la fila dependiendo de si hay coincidencias
-    rows[i].style.display = match ? '' : 'none';
-  }
-});
+    });
+}

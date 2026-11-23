@@ -1,4 +1,7 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1]);
 // 1. Limpiamos cualquier salida previa que pueda meter ruidos o espacios en blanco
 ob_clean();
 

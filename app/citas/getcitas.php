@@ -11,51 +11,27 @@ if (isset($_POST['id_cita'])) {
             c.descripcion,
             c.id_especialidad,
             CASE
-                WHEN ca.idcita IS NOT NULL THEN 'interno'
-                WHEN cb.idcita IS NOT NULL THEN 'interno'
-                WHEN cu.idcita IS NOT NULL THEN 'externo'
+                WHEN a.ID IS NULL AND b.id_beneficiario IS NULL THEN 'externo'
+                ELSE 'interno'
             END AS tipo_origen,
             -- Datos del paciente externo (Comunidad UPTM)
-            u.nombre AS nombre_ext,
-            u.apellido AS apellido_ext,
-            u.cedula AS cedula_ext,
-            -- ID del paciente interno (si aplica)
+            CASE WHEN a.ID IS NULL AND b.id_beneficiario IS NULL THEN p.nombre   ELSE NULL END AS nombre_ext,
+            CASE WHEN a.ID IS NULL AND b.id_beneficiario IS NULL THEN p.apellido ELSE NULL END AS apellido_ext,
+            CASE WHEN a.ID IS NULL AND b.id_beneficiario IS NULL THEN p.cedula   ELSE NULL END AS cedula_ext,
+            -- Paciente unificado (solo internos; los externos no tienen rol)
+            CASE WHEN a.ID IS NOT NULL OR b.id_beneficiario IS NOT NULL THEN p.id_persona ELSE NULL END AS id_paciente,
+            CASE WHEN a.ID IS NOT NULL OR b.id_beneficiario IS NOT NULL THEN p.nombre   ELSE NULL END AS nombre_int,
+            CASE WHEN a.ID IS NOT NULL OR b.id_beneficiario IS NOT NULL THEN p.apellido ELSE NULL END AS apellido_int,
+            CASE WHEN a.ID IS NOT NULL OR b.id_beneficiario IS NOT NULL THEN p.cedula   ELSE NULL END AS cedula_int,
             CASE
-                WHEN ca.idcita IS NOT NULL THEN a.id
-                WHEN cb.idcita IS NOT NULL THEN b.id
-                ELSE NULL
-            END AS id_paciente,
-            -- Datos separados del paciente interno
-            CASE
-                WHEN ca.idcita IS NOT NULL THEN pa.nombre
-                WHEN cb.idcita IS NOT NULL THEN pb.nombre
-                ELSE NULL
-            END AS nombre_int,
-            CASE
-                WHEN ca.idcita IS NOT NULL THEN pa.apellido
-                WHEN cb.idcita IS NOT NULL THEN pb.apellido
-                ELSE NULL
-            END AS apellido_int,
-            CASE
-                WHEN ca.idcita IS NOT NULL THEN pa.cedula
-                WHEN cb.idcita IS NOT NULL THEN pb.cedula
-                ELSE NULL
-            END AS cedula_int,
-            CASE
-                WHEN ca.idcita IS NOT NULL THEN 'Afiliado'
-                WHEN cb.idcita IS NOT NULL THEN 'Beneficiario'
+                WHEN a.ID IS NOT NULL THEN 'Afiliado'
+                WHEN b.id_beneficiario IS NOT NULL THEN 'Beneficiario'
                 ELSE NULL
             END AS tipo_int
         FROM citas c
-        LEFT JOIN citas_afil ca ON c.id_cita = ca.idcita
-        LEFT JOIN afiliados a ON ca.id_afiliado = a.id
-        LEFT JOIN persona pa ON a.cedula = pa.cedula
-        LEFT JOIN citas_benef cb ON c.id_cita = cb.idcita
-        LEFT JOIN beneficiarios b ON cb.id_beneficiario = b.id
-        LEFT JOIN persona pb ON b.cedula = pb.cedula
-        LEFT JOIN citas_uptm cu ON c.id_cita = cu.idcita
-        -- El JOIN correcto usando 'id' como confirmaste
-        LEFT JOIN comunidad_uptm u ON cu.id_externo = u.id 
+        INNER JOIN persona p ON p.id_persona = c.id_persona
+        LEFT JOIN afiliados a     ON a.id_persona = p.id_persona
+        LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona
         LEFT JOIN especialidades e ON c.id_especialidad = e.id_especialidad
         WHERE c.id_cita = ?";
 

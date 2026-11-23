@@ -1,4 +1,8 @@
-<?php  
+<?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
+  
 require_once 'C:/xampp/htdocs/IPSPUPTM/vendor/autoload.php'; // Autoload de Composer  
 include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';  
 
@@ -46,24 +50,16 @@ $query_citas = "
         c.descripcion,  
         e.nombre_especialidad,  
         CASE  
-            WHEN ca.idcita IS NOT NULL THEN 'Afiliado'  
-            WHEN cb.idcita IS NOT NULL THEN 'Beneficiario'  
+            WHEN a.ID IS NOT NULL THEN 'Afiliado'  
+            WHEN b.id_beneficiario IS NOT NULL THEN 'Beneficiario'  
+            ELSE 'Comunidad UPTM'  
         END AS tipo_paciente,  
-        CASE  
-            WHEN ca.idcita IS NOT NULL THEN CONCAT(p_a.nombre,' ',p_a.apellido)  
-            WHEN cb.idcita IS NOT NULL THEN CONCAT(p_b.nombre,' ',p_b.apellido)  
-        END AS nombre_paciente,  
-        CASE  
-            WHEN ca.idcita IS NOT NULL THEN p_a.cedula  
-            WHEN cb.idcita IS NOT NULL THEN p_b.cedula  
-        END AS cedula_paciente  
+        CONCAT(p.nombre,' ',p.apellido) AS nombre_paciente,  
+        p.cedula AS cedula_paciente  
     FROM citas c  
-    LEFT JOIN citas_afil ca ON c.id_cita = ca.idcita  
-    LEFT JOIN afiliados a ON ca.id_afiliado = a.id  
-    LEFT JOIN persona p_a ON a.cedula = p_a.cedula  
-    LEFT JOIN citas_benef cb ON c.id_cita = cb.idcita  
-    LEFT JOIN beneficiarios b ON cb.id_beneficiario = b.id  
-    LEFT JOIN persona p_b ON b.cedula = p_b.cedula  
+    INNER JOIN persona p ON p.id_persona = c.id_persona  
+    LEFT JOIN afiliados a     ON a.id_persona = p.id_persona  
+    LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona  
     LEFT JOIN especialidades e ON c.id_especialidad = e.id_especialidad  
     WHERE $condicion_fecha  
     ORDER BY c.fecha_cita DESC  

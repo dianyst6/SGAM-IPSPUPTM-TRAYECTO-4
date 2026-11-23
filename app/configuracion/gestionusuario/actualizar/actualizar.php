@@ -1,5 +1,8 @@
 <?php
-session_start();
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1]);
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 header('Content-Type: application/json');
 
 require 'C:/xampp/htdocs/IPSPUPTM/config/database.php';

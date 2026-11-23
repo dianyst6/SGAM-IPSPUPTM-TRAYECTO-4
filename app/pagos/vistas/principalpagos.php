@@ -4,9 +4,12 @@ include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
 
 $sql_ext = "SELECT COUNT(*) AS total 
             FROM citas c
-            INNER JOIN citas_uptm h ON c.id_cita = h.idcita 
+            INNER JOIN persona u ON u.id_persona = c.id_persona
+            LEFT JOIN afiliados af_u     ON af_u.id_persona = u.id_persona
+            LEFT JOIN beneficiarios be_u ON be_u.id_persona = u.id_persona
             LEFT JOIN pagos_externos p ON c.id_cita = p.id_cita
-            WHERE p.id_pago_ext IS NULL AND c.estado != 'cancelada'";
+            WHERE p.id_pago_ext IS NULL AND c.estado != 'cancelada'
+              AND af_u.id_persona IS NULL AND be_u.id_persona IS NULL";
 $res_ext = mysqli_query($conn, $sql_ext);
 $pendientes_externos = mysqli_fetch_assoc($res_ext)['total'];
 

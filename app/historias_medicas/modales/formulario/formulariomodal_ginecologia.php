@@ -55,7 +55,14 @@ if (isset($_SESSION['user_id'])) {
               style="width: 100%;">
               <option value="" selected disabled>Buscar por CI o Nombre...</option>
               <?php
-              $sql = "SELECT cedula, fechanacimiento, CONCAT(nombre, ' ', apellido) as nombre_completo FROM persona";
+              // Solo afiliados y beneficiarios (la comunidad va en el selector externo)
+              $sql = "SELECT p.cedula, p.fechanacimiento,
+                             CONCAT(p.nombre, ' ', p.apellido) AS nombre_completo
+                      FROM persona p
+                      LEFT JOIN afiliados a     ON a.id_persona = p.id_persona
+                      LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona
+                      WHERE a.id_persona IS NOT NULL OR b.id_persona IS NOT NULL
+                      ORDER BY p.nombre ASC";
               $res = $conn->query($sql);
               while ($r = $res->fetch_assoc()) {
                 echo '<option data-fecha="' . $r['fechanacimiento'] . '" value="' . $r['cedula'] . '">' . $r['cedula'] . ' | ' . htmlspecialchars($r['nombre_completo']) . '</option>';
@@ -73,7 +80,12 @@ if (isset($_SESSION['user_id'])) {
               <select name="cedula_ext" id="gine_cedula_ext" class="form-select border-primary" style="width: 100%;">
                 <option value="" selected disabled>Busque o ingrese Cédula...</option>
                 <?php
-                $sql_ext = "SELECT cedula, CONCAT(nombre, ' ', apellido) as nombre_completo FROM comunidad_uptm";
+                $sql_ext = "SELECT p.cedula, CONCAT(p.nombre, ' ', p.apellido) as nombre_completo
+            FROM persona p
+            LEFT JOIN afiliados a     ON a.id_persona = p.id_persona
+            LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona
+            WHERE a.id_persona IS NULL AND b.id_persona IS NULL
+            ORDER BY p.nombre ASC";
                 $res_ext = $conn->query($sql_ext);
                 while ($r_ext = $res_ext->fetch_assoc()) {
                   echo '<option value="' . $r_ext['cedula'] . '" data-nombre="' . htmlspecialchars($r_ext['nombre_completo']) . '">' . $r_ext['cedula'] . ' | ' . htmlspecialchars($r_ext['nombre_completo']) . '</option>';

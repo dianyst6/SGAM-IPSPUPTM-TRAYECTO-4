@@ -1,56 +1,96 @@
-// Función para cargar datos en el modal (Solo Comunidad UPTM)
-function cargarDatosModal(modal, cedula) {
-    console.log("Cédula obtenida: ", cedula);
+// Comunidad UPTM = personas sin rol de afiliado ni beneficiario (tabla persona).
 
-    // Seleccionamos los campos correctos (Asegúrate que los IDs coincidan en tu HTML)
-    let inputcedula = modal.querySelector('#cedula_ext_editar') || modal.querySelector('#cedula');
-    let inputnombre = modal.querySelector('#nombre_ext_editar') || modal.querySelector('#nombre');
-    let inputapellido = modal.querySelector('#apellido_ext_editar') || modal.querySelector('#apellido');
-    let inputtelefono = modal.querySelector('#telefono_ext_editar') || modal.querySelector('#telefono');
+function cargarDatosModal(modal, cedula, idPersona) {
+    const inputcedula = modal.querySelector('#cedula');
+    const inputnombre = modal.querySelector('#nombre');
+    const inputapellido = modal.querySelector('#apellido');
+    const inputtelefono = modal.querySelector('#telefono');
 
-    // CAMBIO: La ruta al PHP que creamos antes para buscar externos
-    let url = "/IPSPUPTM/app/comunidaduptm/getcomunidad.php";
+    const formData = new FormData();
+    if (idPersona) {
+        formData.append('id_persona', idPersona);
+    } else {
+        formData.append('cedula', cedula);
+    }
 
-    let formData = new FormData();
-    formData.append('cedula', cedula);
-
-    fetch(url, {
+    fetch('/IPSPUPTM/app/comunidaduptm/getcomunidad.php', {
         method: 'POST',
         body: formData
     })
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                console.error("Error: ", data.error);
+                console.error('Error: ', data.error);
                 alertify.error(data.error);
-            } else {
-                // Llenamos solo lo necesario: Nombre, Apellido y Cédula
-                if (inputcedula) inputcedula.value = data.cedula || '';
-                if (inputnombre) inputnombre.value = data.nombre || '';
-                if (inputapellido) inputapellido.value = data.apellido || '';
-                if (inputtelefono) inputtelefono.value = data.telefono || '';
+                return;
             }
+            if (inputcedula) inputcedula.value = data.cedula || '';
+            if (inputnombre) inputnombre.value = data.nombre || '';
+            if (inputapellido) inputapellido.value = data.apellido || '';
+            if (inputtelefono) inputtelefono.value = data.telefono || '';
+
+            const hiddenId = modal.querySelector('#id_persona');
+            const hiddenCedula = modal.querySelector('#cedula_original');
+            if (hiddenId && data.id_persona) hiddenId.value = data.id_persona;
+            if (hiddenCedula) hiddenCedula.value = data.cedula || '';
         })
-        .catch(error => console.error("Error de conexión: ", error));
+        .catch(error => console.error('Error de conexión: ', error));
 }
 
-// Evento para el Modal de Edición
-let editmodal = document.getElementById('editmodal');
+// Último registro seleccionado, para no depender del evento de Bootstrap.
+let personaEnEdicion = { id_persona: '', cedula: '' };
+
+function sincronizarIdentificador(boton) {
+    if (!boton) return;
+
+    personaEnEdicion = {
+        id_persona: boton.getAttribute('data-bs-id-persona') || '',
+        cedula: boton.getAttribute('data-bs-cedula') || ''
+    };
+
+    const editmodal = document.getElementById('editmodal');
+    if (!editmodal) return;
+    const hiddenId = editmodal.querySelector('#id_persona');
+    const hiddenCedula = editmodal.querySelector('#cedula_original');
+    if (hiddenId && personaEnEdicion.id_persona) hiddenId.value = personaEnEdicion.id_persona;
+    if (hiddenCedula) hiddenCedula.value = personaEnEdicion.cedula;
+}
+
+document.addEventListener('click', function (event) {
+    const boton = event.target && event.target.closest
+        ? event.target.closest('[data-bs-target="#editmodal"]')
+        : null;
+    if (boton) sincronizarIdentificador(boton);
+});
+
+// Modal de edición
+const editmodal = document.getElementById('editmodal');
 if (editmodal) {
     editmodal.addEventListener('shown.bs.modal', event => {
-        let button = event.relatedTarget;
-        let cedula = button.getAttribute('data-bs-cedula');
-        cargarDatosModal(editmodal, cedula);
+        const button = event.relatedTarget;
+        sincronizarIdentificador(button);
+        if (button) {
+            cargarDatosModal(
+                editmodal,
+                button.getAttribute('data-bs-cedula'),
+                button.getAttribute('data-bs-id-persona')
+            );
+        }
     });
 
-    // Manejar el envío del formulario de actualización
     const formEditar = editmodal.querySelector('form');
     if (formEditar) {
         formEditar.addEventListener('submit', function (event) {
             event.preventDefault();
-            const formData = new FormData(this);
 
-            // CAMBIO: Ruta hacia tu procesador de actualización de externos
+            // Respaldo: si los ocultos quedaron vacíos, usar el botón que abrió el modal.
+            const hiddenId = formEditar.querySelector('[name="id_persona"]');
+            const hiddenCedula = formEditar.querySelector('[name="cedula_original"]');
+            if (hiddenId && !hiddenId.value) hiddenId.value = personaEnEdicion.id_persona;
+            if (hiddenCedula && !hiddenCedula.value) hiddenCedula.value = personaEnEdicion.cedula;
+
+            const formData = new FormData(formEditar);
+
             fetch('/IPSPUPTM/app/comunidaduptm/actualizar/actualizar.php', {
                 method: 'POST',
                 body: formData
@@ -65,56 +105,19 @@ if (editmodal) {
                     }
                     bootstrap.Modal.getInstance(editmodal).hide();
                 })
-                .catch(error => alertify.error("Error al actualizar."));
+                .catch(() => alertify.error('Error al actualizar.'));
         });
     }
 }
 
-// Evento para el Modal de Eliminación
-const eliminamodal = document.getElementById('eliminamodal');
-if (eliminamodal) {
-    eliminamodal.addEventListener('shown.bs.modal', event => {
-        const button = event.relatedTarget;
-        const cedula = button.getAttribute('data-bs-cedula');
-        // Buscamos el input oculto donde se guarda la cédula para borrar
-        const cedulaInput = eliminamodal.querySelector('input[name="cedula"]');
-        if (cedulaInput) cedulaInput.value = cedula;
-    });
-
-    const formEliminar = eliminamodal.querySelector('form');
-    if (formEliminar) {
-        formEliminar.addEventListener('submit', function (event) {
-            event.preventDefault();
-            const formData = new FormData(this);
-
-            // CAMBIO: Ruta hacia tu procesador de eliminación de externos
-            fetch('/IPSPUPTM/app/comunidaduptm/eliminar/eliminar.php', {
-                method: 'POST',
-                body: formData
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alertify.success(data.message);
-                        setTimeout(() => window.location.reload(), 1000);
-                    } else {
-                        alertify.error(data.message);
-                    }
-                    bootstrap.Modal.getInstance(eliminamodal).hide();
-                })
-                .catch(error => alertify.error("Error al eliminar."));
-        });
-    }
-}
-
-// Evento para el Formulario de Agregar
+// Formulario de alta
 const formulariomodal = document.getElementById('formulariomodal');
 if (formulariomodal) {
     const formAgregar = formulariomodal.querySelector('form');
     if (formAgregar) {
         formAgregar.addEventListener('submit', function (event) {
             event.preventDefault();
-            const formData = new FormData(this);
+            const formData = new FormData(formAgregar);
 
             fetch('/IPSPUPTM/app/comunidaduptm/formulario/guardar.php', {
                 method: 'POST',
@@ -130,12 +133,12 @@ if (formulariomodal) {
                     }
                     bootstrap.Modal.getInstance(formulariomodal).hide();
                 })
-                .catch(error => alertify.error("Error al guardar."));
+                .catch(() => alertify.error('Error al guardar.'));
         });
     }
 }
 
-// Filtro de búsqueda (Igual al que tenías, funciona perfecto)
+// Filtro de búsqueda
 const searchInput = document.getElementById('search');
 if (searchInput) {
     searchInput.addEventListener('keyup', () => {

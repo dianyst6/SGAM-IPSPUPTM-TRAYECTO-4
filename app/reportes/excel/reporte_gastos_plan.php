@@ -1,4 +1,7 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 require_once 'C:/xampp/htdocs/IPSPUPTM/vendor/autoload.php';
 include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
 
@@ -18,18 +21,18 @@ $logo_ipspuptm = 'C:/xampp/htdocs/IPSPUPTM/recursos/img/IPSPUPTMlogo.png';
 $logo_uptm = 'C:/xampp/htdocs/IPSPUPTM/recursos/img/UPTM_logo.png';
 
 // ─── Consulta afiliados con contrato activo ───────────────────────────────────
-$where_afil = $cedula_filtro ? "AND a.cedula = '$cedula_filtro'" : "";
+$where_afil = $cedula_filtro ? "AND per.cedula = '$cedula_filtro'" : "";
 
 $sql_afiliados = "SELECT
-                    a.cedula,
+                    per.cedula,
                     CONCAT(per.apellido, ' ', per.nombre) AS nombre_afiliado,
                     p.nombre_plan,
                     p.monto_cobertura,
                     cp.ID_contrato
                   FROM afiliados a
-                  INNER JOIN contrato_plan cp ON a.cedula = cp.ID_afiliado_contrato
+                  INNER JOIN contrato_plan cp ON a.id_persona = cp.id_persona
                   INNER JOIN planes p         ON cp.ID_planes_contrato = p.ID_planes
-                  INNER JOIN persona per      ON a.cedula = per.cedula
+                  INNER JOIN persona per      ON a.id_persona = per.id_persona
                   WHERE cp.estado_contrato = 'Activo'
                   $where_afil
                   ORDER BY per.apellido, per.nombre";
@@ -56,7 +59,7 @@ if ($res_afil) {
                     c.fecha_consumo
                   FROM consumo_plan c
                   LEFT JOIN examenes e   ON c.ID_examen_plan = e.ID_examen
-                  LEFT JOIN persona per2 ON c.ID_persona_plan = per2.cedula
+                  LEFT JOIN persona per2 ON c.id_persona = per2.id_persona
                   WHERE c.ID_contrato_plan = ?
                   ORDER BY c.fecha_consumo DESC";
         $st2 = $conn->prepare($sql_h);

@@ -49,11 +49,11 @@ try {
                 ) AS nombre_paciente,
                 'Ginecología' AS nombre_especialidad
             FROM historias_medicas_gine g
-            LEFT JOIN afiliados a ON g.ci_paciente = a.cedula
-            LEFT JOIN persona p_a ON a.cedula = p_a.cedula
-            LEFT JOIN beneficiarios b ON g.ci_paciente = b.cedula
-            LEFT JOIN persona p_b ON b.cedula = p_b.cedula
-            LEFT JOIN comunidad_uptm ext ON g.ci_paciente = ext.cedula
+            LEFT JOIN persona p_a ON g.ci_paciente = p_a.cedula
+            LEFT JOIN afiliados a ON a.id_persona = p_a.id_persona
+            LEFT JOIN persona p_b ON g.ci_paciente = p_b.cedula
+            LEFT JOIN beneficiarios b ON b.id_persona = p_b.id_persona
+            LEFT JOIN persona ext ON g.ci_paciente = ext.cedula
             $whereClause
             ORDER BY g.fecha DESC
             LIMIT $rowsPerPage OFFSET $offset
@@ -76,11 +76,11 @@ try {
                 ) AS nombre_paciente,
                 COALESCE(esp.nombre_especialidad, 'General') AS nombre_especialidad
             FROM historias_medicas h
-            LEFT JOIN afiliados a ON h.ci_paciente = a.cedula
-            LEFT JOIN persona p_a ON a.cedula = p_a.cedula
-            LEFT JOIN beneficiarios b ON h.ci_paciente = b.cedula
-            LEFT JOIN persona p_b ON b.cedula = p_b.cedula
-            LEFT JOIN comunidad_uptm ext ON h.ci_paciente = ext.cedula
+            LEFT JOIN persona p_a ON h.ci_paciente = p_a.cedula
+            LEFT JOIN afiliados a ON a.id_persona = p_a.id_persona
+            LEFT JOIN persona p_b ON h.ci_paciente = p_b.cedula
+            LEFT JOIN beneficiarios b ON b.id_persona = p_b.id_persona
+            LEFT JOIN persona ext ON h.ci_paciente = ext.cedula
             LEFT JOIN medicos m ON h.ci_medico = m.ci_medico
             LEFT JOIN especialidades esp ON m.especialidad = esp.id_especialidad
             $whereClause

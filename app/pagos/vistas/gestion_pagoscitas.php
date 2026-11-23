@@ -1,5 +1,6 @@
 <?php
 include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
+include 'C:/xampp/htdocs/IPSPUPTM/config/plan_helper.php';
 
 // --- LÓGICA DE PAGINACIÓN ---
 $rowsPerPage = 10;
@@ -7,54 +8,34 @@ $currentPage = isset($_GET['page']) ? intval($_GET['page']) : 1;
 if ($currentPage < 1) $currentPage = 1;
 $offset = ($currentPage - 1) * $rowsPerPage;
 
-// SQL BASE (UNION) para contar y para paginar
+// Citas por pagar de pacientes internos (afiliados o beneficiarios).
+// La cobertura y el contrato se resuelven por fecha en PHP.
 $sql_base = "
-    (SELECT 
-        c.id_cita, 
-        p_ind.cedula,
-        CONCAT(p_ind.nombre, ' ', p_ind.apellido) AS nombre_paciente,
-        'Afiliado' AS tipo,
-        pl.nombre_plan,
-        pl.monto_cobertura,
-        cp_con.ID_contrato,
+    SELECT
+        c.id_cita,
+        c.id_persona,
+        p.cedula,
+        CONCAT(p.nombre, ' ', p.apellido) AS nombre_paciente,
+        CASE
+            WHEN a.ID IS NOT NULL THEN 'Afiliado'
+            WHEN b.id_beneficiario IS NOT NULL THEN 'Beneficiario'
+            ELSE 'Comunidad UPTM'
+        END AS tipo,
         c.fecha_cita,
         c.estado_pago,
         e.nombre_especialidad,
         e.descuento AS descuento_especialidad,
-        (SELECT SUM(precio_historico) FROM citas_examenes WHERE id_cita = c.id_cita) AS costo_total
+        (SELECT COALESCE(SUM(precio_historico), 0)
+           FROM citas_examenes
+          WHERE id_cita = c.id_cita) AS costo_total
     FROM citas c
-    INNER JOIN citas_afil ca ON c.id_cita = ca.idcita
-    INNER JOIN afiliados a ON ca.id_afiliado = a.ID
-    INNER JOIN persona p_ind ON a.cedula = p_ind.cedula
+    INNER JOIN persona p ON p.id_persona = c.id_persona
+    LEFT JOIN afiliados a     ON a.id_persona = p.id_persona
+    LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona
     INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
-    INNER JOIN contrato_plan cp_con ON a.cedula = cp_con.ID_afiliado_contrato
-    INNER JOIN planes pl ON cp_con.ID_planes_contrato = pl.ID_planes
-    WHERE c.estado_pago = 'Por Pagar' AND cp_con.estado_contrato = 'Activo' AND c.estado != 'cancelada')
-    
-    UNION
-    
-    (SELECT 
-        c.id_cita, 
-        p_ind.cedula,
-        CONCAT(p_ind.nombre, ' ', p_ind.apellido) AS nombre_paciente,
-        'Beneficiario' AS tipo,
-        pl.nombre_plan,
-        pl.monto_cobertura,
-        cp_con.ID_contrato,
-        c.fecha_cita,
-        c.estado_pago,
-        e.nombre_especialidad,
-        e.descuento AS descuento_especialidad,
-        (SELECT SUM(precio_historico) FROM citas_examenes WHERE id_cita = c.id_cita) AS costo_total
-    FROM citas c
-    INNER JOIN citas_benef cb ON c.id_cita = cb.idcita
-    INNER JOIN beneficiarios b ON cb.id_beneficiario = b.ID
-    INNER JOIN persona p_ind ON b.cedula = p_ind.cedula
-    INNER JOIN afiliados a_tit ON b.cedula_afil = a_tit.ID
-    INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
-    INNER JOIN contrato_plan cp_con ON a_tit.cedula = cp_con.ID_afiliado_contrato
-    INNER JOIN planes pl ON cp_con.ID_planes_contrato = pl.ID_planes
-    WHERE c.estado_pago = 'Por Pagar' AND cp_con.estado_contrato = 'Activo' AND c.estado != 'cancelada')
+    WHERE c.estado_pago = 'Por Pagar'
+      AND c.estado != 'cancelada'
+      AND (a.ID IS NOT NULL OR b.id_beneficiario IS NOT NULL)
 ";
 
 // Obtener total de registros
@@ -106,45 +87,74 @@ $res = mysqli_query($conn, $sql_paginado);
                 </thead>
                 <tbody>
                     <?php if (mysqli_num_rows($res) > 0): ?>
-                        <?php while ($row = mysqli_fetch_assoc($res)): 
-                            $id_contrato = $row['ID_contrato'];
-                            $cobertura = $row['monto_cobertura'];
-                            
-                            // Calcular consumo actual
-                            $sql_cons = "SELECT SUM(monto_descontado) AS consumido FROM consumo_plan WHERE ID_contrato_plan = '$id_contrato'";
-                            $res_cons = mysqli_query($conn, $sql_cons);
-                            $consumido = mysqli_fetch_assoc($res_cons)['consumido'] ?? 0;
-                            $saldo_disponible = $cobertura - $consumido;
-                            $costo_cita = $row['costo_total'] ?? 0;
-                            $puede_pagar = ($saldo_disponible >= $costo_cita);
+                        <?php while ($row = mysqli_fetch_assoc($res)):
+                            $idPersona = (int) $row['id_persona'];
+                            $fechaCitaDia = substr((string) $row['fecha_cita'], 0, 10);
+                            $cobertura = contratoValidarCobertura($conn, $idPersona, $fechaCitaDia);
+                            $resumen = $cobertura['resumen'] ?? [];
+                            $contrato = $cobertura['contrato'] ?? null;
+
+                            $coberturaOk = (bool) $cobertura['ok'];
+                            $planNombre = $resumen['plan']['nombre_plan'] ?? 'Sin cobertura';
+                            $anioPlan = $resumen['anio'] ?? '';
+                            $saldoDisponible = $resumen['disponible'] ?? 0.0;
+                            $costoCita = round((float) ($row['costo_total'] ?? 0), 2);
+                            $cupo = ($coberturaOk && $contrato)
+                                ? planValidarCupoCita(
+                                    $conn,
+                                    (int) $contrato['ID_contrato'],
+                                    (int) $contrato['ID_planes_contrato'],
+                                    (int) $row['id_cita']
+                                )
+                                : ['ok' => false, 'motivo' => ''];
+                            $puedePagar = $coberturaOk && $costoCita > 0
+                                && $saldoDisponible >= $costoCita && $cupo['ok'];
+                            $motivo = $cobertura['motivo'];
                         ?>
                         <tr>
                             <td class="text-start">
                                 <strong><?php echo htmlspecialchars($row['nombre_paciente']); ?></strong><br>
-                                <small class="text-muted">C.I: <?php echo htmlspecialchars($row['cedula']); ?></small>
+                                <small class="text-muted">C.I: <?php echo htmlspecialchars($row['cedula']); ?></small><br>
+                                <small class="text-muted"><?php echo date('d/m/Y h:i A', strtotime($row['fecha_cita'])); ?></small>
                             </td>
                             <td><span class="badge bg-secondary"><?php echo $row['tipo']; ?></span></td>
-                            <td><?php echo htmlspecialchars($row['nombre_plan']); ?></td>
-                            <td class="fw-bold text-danger">$<?php echo number_format($costo_cita, 2); ?></td>
-                            <td class="fw-bold <?php echo $puede_pagar ? 'text-success' : 'text-danger'; ?>">
-                                $<?php echo number_format($saldo_disponible, 2); ?>
+                            <td>
+                                <?php echo htmlspecialchars($planNombre); ?>
+                                <?php if ($anioPlan): ?>
+                                    <br><small class="text-muted"><?php echo (int) $anioPlan; ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td class="fw-bold text-danger">$<?php echo number_format($costoCita, 2); ?></td>
+                            <td class="fw-bold <?php echo $puedePagar ? 'text-success' : 'text-danger'; ?>">
+                                <?php if ($coberturaOk): ?>
+                                    $<?php echo number_format($saldoDisponible, 2); ?>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
                             </td>
                             <td>
-                                <?php if ($puede_pagar): ?>
-                                <button type="button" class="btn btn-success btn-sm" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#modalPagoPoliza"
-                                        data-bs-idcita="<?php echo $row['id_cita']; ?>"
-                                        data-bs-idcontrato="<?php echo $row['ID_contrato']; ?>"
-                                        data-bs-monto="<?php echo $costo_cita; ?>"
-                                        data-bs-nombre="<?php echo $row['nombre_paciente']; ?>"
-                                        data-bs-especialidad="<?php echo $row['nombre_especialidad']; ?>"
-                                        data-bs-descuento="<?php echo $row['descuento_especialidad']; ?>">
-                                    <i class="fas fa-file-invoice-dollar me-1"></i> Descontar de Póliza
-                                </button>
+                                <?php if (!$coberturaOk): ?>
+                                    <span class="badge bg-warning text-dark">Sin cobertura</span>
+                                    <br><small class="text-muted"><?php echo htmlspecialchars($motivo); ?></small>
+                                <?php elseif ($costoCita <= 0): ?>
+                                    <span class="badge bg-warning text-dark">Sin exámenes</span>
+                                <?php elseif (!$cupo['ok']): ?>
+                                    <span class="badge bg-warning text-dark">Cupo agotado</span>
+                                    <br><small class="text-muted"><?php echo htmlspecialchars($cupo['motivo']); ?></small>
+                                <?php elseif ($puedePagar): ?>
+                                    <button type="button" class="btn btn-success btn-sm" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#modalPagoPoliza"
+                                            data-bs-idcita="<?php echo (int) $row['id_cita']; ?>"
+                                            data-bs-idcontrato="<?php echo (int) $contrato['ID_contrato']; ?>"
+                                            data-bs-monto="<?php echo $costoCita; ?>"
+                                            data-bs-nombre="<?php echo htmlspecialchars($row['nombre_paciente']); ?>"
+                                            data-bs-especialidad="<?php echo htmlspecialchars($row['nombre_especialidad']); ?>"
+                                            data-bs-descuento="<?php echo (float) $row['descuento_especialidad']; ?>">
+                                        <i class="fas fa-file-invoice-dollar me-1"></i> Descontar de Póliza
+                                    </button>
                                 <?php else: ?>
                                     <span class="badge bg-warning text-dark">Saldo Insuficiente</span>
-                                    <button class="btn btn-outline-primary btn-sm mt-1">Pagar Diferencia</button>
                                 <?php endif; ?>
                             </td>
                         </tr>

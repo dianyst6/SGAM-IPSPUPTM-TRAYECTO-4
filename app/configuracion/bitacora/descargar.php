@@ -1,4 +1,8 @@
-<?php  
+<?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1]);
+  
 require 'C:/xampp/htdocs/IPSPUPTM/assets/fpdf.php';  
 require 'C:/xampp/htdocs/IPSPUPTM/config/database.php';  
 

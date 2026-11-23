@@ -20,7 +20,7 @@
                                 $sql_afiliados = "
                                 SELECT a.id AS cedula_afil, CONCAT(p.nombre, ' ', p.apellido) AS nombre_completo
                                 FROM afiliados a
-                                JOIN persona p ON a.cedula = p.cedula
+                                JOIN persona p ON a.id_persona = p.id_persona
                                 ORDER BY p.nombre ASC";
                                 $result_afiliados = $conn->query($sql_afiliados);
 

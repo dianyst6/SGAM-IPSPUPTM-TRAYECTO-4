@@ -6,21 +6,45 @@ $respuestas_coinciden = false;
 $user_id = null;
 $error_password = null;
 
-// 1. MODIFICAMOS EL CONTROL DE ACCESO:
-// Permitimos entrar por GET *únicamente* si viene rebotado de un error al cambiar la contraseña
+// 1. CONTROL DE ACCESO:
+// La identidad del usuario que puede cambiar la contraseña vive SOLO en la sesión del servidor.
+// No se acepta ningún parámetro por URL (elimina el bypass con ?error=...&user_id=...).
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    if (isset($_GET['error']) && isset($_GET['user_id'])) {
-        $user_id = intval($_GET['user_id']);
-        $respuestas_coinciden = true; // Forzamos a que muestre el formulario de cambio directo
-        $error_password = $_GET['error'];
+    // GET: solo se continúa si YA hay una autorización vigente en la sesión.
+    $autorizacion_valida = !empty($_SESSION['reset_autorizado'])
+        && !empty($_SESSION['reset_user_id'])
+        && !empty($_SESSION['reset_expira'])
+        && time() < (int) $_SESSION['reset_expira'];
+
+    if ($autorizacion_valida) {
+        $respuestas_coinciden = true;
+        $user_id = (int) $_SESSION['reset_user_id'];
+        $error_password = $_SESSION['reset_error'] ?? null;
+        unset($_SESSION['reset_error']);
     } else {
-        header("Location: recuperar_contrasena.php");
+        // Sin autorización (o expirada): se reinicia el flujo de recuperación.
+        unset($_SESSION['reset_autorizado'], $_SESSION['reset_user_id'], $_SESSION['reset_expira'], $_SESSION['reset_error']);
+        header("Location: /IPSPUPTM/vistas/recuperar_contraseña.php");
         exit();
     }
 } else {
     // Flujo normal cuando viene de responder las preguntas por POST
-    $user_id = $_POST['user_id'];
-    $respuestas_usuario = $_POST['respuesta_seguridad'];
+    $user_id = isset($_POST['user_id']) ? (int) $_POST['user_id'] : 0;
+    $respuestas_usuario = (isset($_POST['respuesta_seguridad']) && is_array($_POST['respuesta_seguridad']))
+        ? $_POST['respuesta_seguridad']
+        : [];
+
+    // Límite de intentos por sesión (máximo 5)
+    if (!isset($_SESSION['reset_intentos'])) {
+        $_SESSION['reset_intentos'] = 0;
+    }
+
+    if ($user_id <= 0 || empty($respuestas_usuario)) {
+        $_SESSION['mensaje_alertify'] = "Solicitud inválida. Inténtalo de nuevo.";
+        $_SESSION['tipo_alertify'] = "error";
+        header("Location: /IPSPUPTM/vistas/recuperar_contraseña.php");
+        exit();
+    }
 
     // Obtener respuestas correctas de la DB
     $sql_respuestas = "SELECT pregunta_seguridad_id, respuesta FROM respuestas_seguridad WHERE usuario_id = ?";
@@ -34,12 +58,30 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         $respuestas_correctas[$row['pregunta_seguridad_id']] = $row['respuesta'];
     }
 
-    // Verificar respuestas
-    $respuestas_coinciden = true;
+    // Verificar respuestas (sin distinguir mayúsculas/minúsculas ni espacios sobrantes)
+    $respuestas_coinciden = !empty($respuestas_correctas);
     foreach ($respuestas_usuario as $pregunta_id => $valor) {
-        if (!isset($respuestas_correctas[$pregunta_id]) || $respuestas_correctas[$pregunta_id] !== $valor) {
+        $correcta = $respuestas_correctas[$pregunta_id] ?? null;
+        if ($correcta === null || mb_strtolower(trim((string) $valor)) !== mb_strtolower(trim((string) $correcta))) {
             $respuestas_coinciden = false;
             break;
+        }
+    }
+
+    if ($respuestas_coinciden) {
+        // Autorización de un solo uso, guardada solo en el servidor y válida por 10 minutos
+        $_SESSION['reset_autorizado'] = true;
+        $_SESSION['reset_user_id'] = $user_id;
+        $_SESSION['reset_expira'] = time() + 600;
+        $_SESSION['reset_intentos'] = 0;
+    } else {
+        $_SESSION['reset_intentos']++;
+        if ($_SESSION['reset_intentos'] >= 5) {
+            $_SESSION['reset_intentos'] = 0;
+            $_SESSION['mensaje_alertify'] = "Demasiados intentos fallidos. Por seguridad, inicia de nuevo la recuperación.";
+            $_SESSION['tipo_alertify'] = "error";
+            header("Location: /IPSPUPTM/vistas/recuperar_contraseña.php");
+            exit();
         }
     }
 }
@@ -92,18 +134,20 @@ if ($respuestas_coinciden) {
                 agragarAlternarOjo('toggleResetPassword', 'reset_password', 'resetEyeIcon');
                 agragarAlternarOjo('toggleResetConfirmPassword', 'reset_confirm_password', 'resetConfirmEyeIcon');
 
-                // 2. Manejo de alertas de error por URL si las hay
+                // 2. Manejo de alertas de error (mensajes desde un array fijo, sin datos de la URL)
                 <?php if ($error_password !== null): ?>
-                    if ("<?php echo $error_password; ?>" === "no_coinciden") {
-                        alertify.error("❌ Las contraseñas introducidas no coinciden.");
-                    } else if ("<?php echo $error_password; ?>" === "vacia") {
-                        alertify.error("❌ La nueva contraseña no puede estar vacía.");
-                    } else {
-                        alertify.error("❌ Ocurrió un error al procesar la solicitud.");
-                    }
-                    
-                    // Limpiamos el error pero dejamos el user_id activo
-                    window.history.replaceState({}, document.title, window.location.pathname + "?user_id=<?php echo $user_id; ?>");
+                    <?php
+                    $mensajes_error = [
+                        'no_coinciden' => 'Las contraseñas introducidas no coinciden.',
+                        'vacia'        => 'La nueva contraseña no puede estar vacía.',
+                        'corta'        => 'La nueva contraseña debe tener al menos 8 caracteres.',
+                    ];
+                    $mensaje_error = $mensajes_error[$error_password] ?? 'Ocurrió un error al procesar la solicitud.';
+                    ?>
+                    alertify.error("<?php echo htmlspecialchars($mensaje_error, ENT_QUOTES); ?>");
+
+                    // Limpiamos el estado del formulario (sin exponer la identidad en la URL)
+                    window.history.replaceState({}, document.title, window.location.pathname);
                 <?php endif; ?>
             };
         </script>

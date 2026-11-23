@@ -1,4 +1,7 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2, 3]);
 require_once 'C:/xampp/htdocs/IPSPUPTM/vendor/autoload.php';
 use Dompdf\Dompdf;
 use Dompdf\Options;

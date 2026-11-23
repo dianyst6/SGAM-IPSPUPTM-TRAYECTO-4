@@ -8,12 +8,18 @@ document.addEventListener('DOMContentLoaded', () => {
         let inputapellido = modal.querySelector('#apellido');
         let inputfechanacimiento = modal.querySelector('#fechanacimiento');
         let inputgenero = modal.querySelector('#genero');
+        let inputestadocivil = modal.querySelector('#estado_civil');
         let inputtelefono = modal.querySelector('#telefono');
         let inputcorreo = modal.querySelector('#correo');
         let inputocupacion = modal.querySelector('#ocupacion');
+        let inputidpersona = modal.querySelector('#id_persona');
+        let inputcedulaoriginal = modal.querySelector('#cedula_original');
 
         let url = "/IPSPUPTM/app/afiliados/getafiliados.php";
         console.log(`[cargarDatosModal] URL de la petición: ${url}`);
+
+        // La cédula original queda disponible desde el inicio, aunque el fetch tarde o falle.
+        if (inputcedulaoriginal && cedula) inputcedulaoriginal.value = cedula;
 
         let formData = new FormData();
         formData.append('cedula', cedula);
@@ -34,6 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 console.log(`[cargarDatosModal] Datos cargados exitosamente para ${modal.id}:`, data);
                 inputcedula.value = data.cedula || '';
+                if (inputidpersona) inputidpersona.value = data.id_persona || '';
+                if (inputcedulaoriginal) inputcedulaoriginal.value = data.cedula || '';
                 inputnombre.value = data.nombre || '';
                 inputapellido.value = data.apellido || '';
                 inputfechanacimiento.value = data.fechanacimiento || '';
@@ -42,10 +50,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 inputocupacion.value = data.ocupacion || '';
                 if (modal.id === 'vermodal'|| modal.id === 'editmodal') {
                     inputgenero.value = data.genero || '';
+                    if (inputestadocivil) inputestadocivil.value = data.estado_civil || '';
                     console.log("[cargarDatosModal - editmodal] Género asignado:", data.genero);
                     // Agregar listener para el formulario de edición AQUÍ
                     const formularioEditarAfiliado = modal.querySelector('form');
-                    if (formularioEditarAfiliado) {
+                    // Evita registrar el listener varias veces al reabrir el modal
+                    if (formularioEditarAfiliado && !formularioEditarAfiliado.dataset.listenerAttached) {
+                        formularioEditarAfiliado.dataset.listenerAttached = '1';
                         formularioEditarAfiliado.addEventListener('submit', function(event) {
                             event.preventDefault();
                             console.log("[Event - editmodal] Formulario de edición enviado.");
@@ -72,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 bootstrap.Modal.getInstance(editmodal).hide(); // Cierra el modal de edición en caso de error
                             });
                         });
-                    } else {
+                    } else if (!formularioEditarAfiliado) {
                         console.error("[Error - editmodal] No se encontró el formulario dentro del modal de edición.");
                     }
                 }
@@ -93,14 +104,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Modal de edición (sin cambios en el listener del 'shown.bs.modal')
+    // Modal de edición
     const editmodal = document.getElementById('editmodal');
     if (editmodal) {
         editmodal.addEventListener('shown.bs.modal', event => {
             console.log("[Event - editmodal] El modal 'editmodal' se ha mostrado.");
             const button = event.relatedTarget;
             const cedula = button.getAttribute('data-bs-cedula');
-            console.log("[Event - editmodal] Cédula obtenida del botón:", cedula);
+            const idPersona = button.getAttribute('data-bs-id-persona');
+            console.log("[Event - editmodal] Cédula obtenida del botón:", cedula, "| id_persona:", idPersona);
+
+            // Se asignan de inmediato para no depender de la respuesta del fetch.
+            const hiddenIdPersona = editmodal.querySelector('#id_persona');
+            const hiddenCedulaOriginal = editmodal.querySelector('#cedula_original');
+            if (hiddenIdPersona && idPersona) hiddenIdPersona.value = idPersona;
+            if (hiddenCedulaOriginal) hiddenCedulaOriginal.value = cedula || '';
+
             cargarDatosModal(editmodal, cedula);
         });
     }

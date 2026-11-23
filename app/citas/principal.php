@@ -35,42 +35,18 @@ try {
         c.estado_pago,
         e.nombre_especialidad,
         CASE 
-            WHEN ca.idcita IS NOT NULL THEN 'Afiliado'
-            WHEN cb.idcita IS NOT NULL THEN 'Beneficiario'
-            WHEN cuptm.idcita IS NOT NULL THEN 'Comunidad UPTM'
-            ELSE 'Desconocido'
+            WHEN a.ID IS NOT NULL THEN 'Afiliado'
+            WHEN b.id_beneficiario IS NOT NULL THEN 'Beneficiario'
+            ELSE 'Comunidad UPTM'
         END AS tipo_paciente,
-        CASE 
-            WHEN ca.idcita IS NOT NULL THEN CONCAT(p_a.nombre, ' ', p_a.apellido)
-            WHEN cb.idcita IS NOT NULL THEN CONCAT(p_b.nombre, ' ', p_b.apellido)
-            -- Aquí buscamos en la tabla comunidad_uptm (com)
-            WHEN cuptm.idcita IS NOT NULL THEN CONCAT(com.nombre, ' ', com.apellido)
-            ELSE 'Paciente no encontrado'
-        END AS nombre_paciente,
-        CASE 
-            WHEN ca.idcita IS NOT NULL THEN p_a.cedula
-            WHEN cb.idcita IS NOT NULL THEN p_b.cedula
-            WHEN cuptm.idcita IS NOT NULL THEN com.cedula
-            ELSE 'N/A'
-        END AS cedula_paciente
+        CONCAT(p.nombre, ' ', p.apellido) AS nombre_paciente,
+        p.cedula AS cedula_paciente
     FROM citas c
-    -- 1. Relación Afiliados
-    LEFT JOIN citas_afil ca ON c.id_cita = ca.idcita
-    LEFT JOIN afiliados a ON ca.id_afiliado = a.id
-    LEFT JOIN persona p_a ON a.cedula = p_a.cedula
-    
-    -- 2. Relación Beneficiarios
-    LEFT JOIN citas_benef cb ON c.id_cita = cb.idcita
-    LEFT JOIN beneficiarios b ON cb.id_beneficiario = b.id
-    LEFT JOIN persona p_b ON b.cedula = p_b.cedula
-    
-    -- 3. Relación Comunidad UPTM (Aquí está el cambio clave)
-    LEFT JOIN citas_uptm cuptm ON c.id_cita = cuptm.idcita
-    LEFT JOIN comunidad_uptm com ON cuptm.id_externo = com.id
-    
-    -- 4. Especialidad
+    INNER JOIN persona p ON p.id_persona = c.id_persona
+    LEFT JOIN afiliados a     ON a.id_persona = p.id_persona
+    LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona
     LEFT JOIN especialidades e ON c.id_especialidad = e.id_especialidad
-    
+
     WHERE c.fecha_cita >= CURDATE() $whereTab
     ORDER BY c.fecha_cita ASC
     LIMIT $rowsPerPage OFFSET $offset

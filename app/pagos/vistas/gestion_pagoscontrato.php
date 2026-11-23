@@ -12,7 +12,7 @@
                     
                     <!-- Título Centrado (Centro) -->
                     <div class="col col-md-6 text-center">
-                        <h1 class="fw-bold mb-0" style="color: #062974; font-size: 2.25rem;">Gestión de Pagos</h1>
+                        <h1 class="fw-bold mb-0" style="color: #062974; font-size: 2.25rem;">Gestión de Pagos de Contratos</h1>
                         <hr class="mx-auto mt-2 mb-0" style="width: 50px; height: 3px; background-color: #062974; opacity: 1;">
                     </div>
                     
@@ -41,8 +41,10 @@
                                 <th>Fecha</th>
                                 <th>Nombre del Paciente</th>
                                 <th>Plan</th>
-                                <th>N° Cuota</th>
-                                <th>Monto Pagado</th>
+                                <th>Concepto</th>
+                                <th>Monto $</th>
+                                <th>Tasa BCV</th>
+                                <th>Monto Bs</th>
                                 <th>Método</th>
                                 <th>Acciones</th>
                             </tr>
@@ -71,13 +73,15 @@
                                         pc.numero_cuota,
                                         pc.metodo_pago,
                                         pc.tipo_pago,
+                                        pc.tasa_bcv,
+                                        pc.monto_bs,
+                                        cp.anio,
                                         p.nombre, 
                                         p.apellido,
                                         pl.nombre_plan
                                       FROM pagos_contrato pc
                                       INNER JOIN contrato_plan cp ON pc.ID_contrato = cp.ID_contrato
-                                      INNER JOIN afiliados af ON cp.ID_afiliado_contrato = af.cedula
-                                      INNER JOIN persona p ON af.cedula = p.cedula
+                                      INNER JOIN persona p ON cp.id_persona = p.id_persona
                                       INNER JOIN planes pl ON cp.ID_planes_contrato = pl.ID_planes
                                       ORDER BY pc.ID_pago DESC
                                       LIMIT $rowsPerPage OFFSET $offset";
@@ -85,19 +89,21 @@
                             $result = mysqli_query($conn, $query);
 
                             if (!$result) {
-                                echo "<tr><td colspan='7'>Error: " . mysqli_error($conn) . "</td></tr>";
+                                echo "<tr><td colspan='9'>Error: " . mysqli_error($conn) . "</td></tr>";
                             } elseif (mysqli_num_rows($result) > 0) {
                                 while ($row = mysqli_fetch_assoc($result)) {
                                     echo "<tr>";
                                     echo "<td>" . date('d/m/Y', strtotime($row['fecha_pago'])) . "</td>";
                                     echo "<td class='text-start text-nowrap'>" . htmlspecialchars($row['nombre'] . " " . $row['apellido']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($row['nombre_plan']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['nombre_plan'] . ' (' . $row['anio'] . ')') . "</td>";
                                     if ($row['tipo_pago'] === 'Pago Inicial') {
                                         echo "<td><span class='badge bg-info'><i class='fas fa-piggy-bank'></i> Pago Inicial</span></td>";
                                     } else {
-                                        echo "<td>Cuota #" . $row['numero_cuota'] . "</td>";
+                                        echo "<td>Cuota #" . (int) $row['numero_cuota'] . "</td>";
                                     }
                                     echo "<td><strong>$ " . number_format($row['monto_cuota'], 2) . "</strong></td>";
+                                    echo "<td class='text-nowrap'>" . number_format($row['tasa_bcv'], 2) . "</td>";
+                                    echo "<td class='text-nowrap'>Bs " . number_format($row['monto_bs'], 2) . "</td>";
                                     echo "<td>" . htmlspecialchars($row['metodo_pago']) . "</td>";
                                     echo "<td>
                                             <a href='/IPSPUPTM/app/pagos/modales/ver_recibo.php?id=" . $row['ID_pago'] . "' class='btn btn-info btn-sm' title='Ver Recibo' target='_blank'><i class='fas fa-file-invoice'></i></a>
@@ -105,7 +111,7 @@
                                     echo "</tr>";
                                 }
                             } else {
-                                echo "<tr><td colspan='7'>No se han registrado pagos todavía.</td></tr>";
+                                echo "<tr><td colspan='9'>No se han registrado pagos todavía.</td></tr>";
                             }
                             ?>
                         </tbody>
@@ -138,8 +144,6 @@
 
 
 <?php include 'C:/xampp/htdocs/IPSPUPTM/app/pagos/modales/modal_registrar_pago.php'; ?>
-
-<?php include 'C:/xampp/htdocs/IPSPUPTM/app/pagos/modales/procesar_pago.php'; ?>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchPagos');

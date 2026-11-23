@@ -132,6 +132,8 @@ function cargarDatosModal(modal, id_cita) {
                 // Si es externo: mostramos campos de texto, ocultamos sección interna
                 if (divExternos) divExternos.style.display = 'block';
                 if (divInternos) divInternos.style.display = 'none';
+                // Evita enviar un id de paciente interno residual de una edición anterior.
+                if (inputIdPaciente) inputIdPaciente.value = '';
             } else {
                 // Si es interno: mostramos el campo de texto readonly, ocultamos campos externos
                 if (divExternos) divExternos.style.display = 'none';

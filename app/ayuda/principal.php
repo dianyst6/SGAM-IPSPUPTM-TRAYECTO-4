@@ -171,12 +171,12 @@
                                 SELECT
                                     a.id AS id_paciente, CONCAT(p.nombre, ' ', p.apellido, ' - (Afiliado)') AS nombre_completo
                                 FROM afiliados a
-                                JOIN persona p ON a.cedula = p.cedula
+                                JOIN persona p ON a.id_persona = p.id_persona
                                 UNION
                                 SELECT
-                                    b.id AS id_paciente, CONCAT(p.nombre, ' ', p.apellido, ' - (Beneficiario)') AS nombre_completo
+                                    b.id_beneficiario AS id_paciente, CONCAT(p.nombre, ' ', p.apellido, ' - (Beneficiario)') AS nombre_completo
                                 FROM beneficiarios b
-                                JOIN persona p ON b.cedula = p.cedula
+                                JOIN persona p ON b.id_persona = p.id_persona
                                 ORDER BY nombre_completo ASC";
                                 $result_pacientes = $conn->query($sql_pacientes);
 

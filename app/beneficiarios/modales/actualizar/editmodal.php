@@ -8,6 +8,8 @@
             <div class="modal-body">
                 <form action="/IPSPUPTM/app/beneficiarios/modales/actualizar/actualizar.php" method="post">
                     <input type="hidden" name="id" id="id">
+                    <input type="hidden" name="id_persona" id="id_persona">
+                    <input type="hidden" name="cedula_original" id="cedula_original">
                     <div class="row">
                         <div class="mb-3 col-12">
                             <label for="cedula_afil" class="form-label">Afiliado relacionado</label>
@@ -15,10 +17,11 @@
                                 <option value="" selected disabled>Seleccionar afiliado...</option>
                                 <?php
                                 // Consulta para cargar afiliados existentes
+                                $afiliado_seleccionado_id = $afiliado_seleccionado_id ?? null;
                                 $sql_afiliados = "
                             SELECT a.id AS id_afiliado, CONCAT(p.nombre, ' ', p.apellido) AS nombre_completo
                             FROM afiliados a
-                            JOIN persona p ON a.cedula = p.cedula
+                            JOIN persona p ON a.id_persona = p.id_persona
                             ORDER BY p.nombre ASC";
                                 $result_afiliados = $conn->query($sql_afiliados);
 
@@ -135,6 +138,8 @@
             let correo = correoInput.value.trim();
             const feedback = correoInput.parentNode.querySelector('#correoFeedback');
             const btnGuardar = correoInput.closest('form').querySelector('button[type="submit"]');
+            const idPersonaInput = correoInput.closest('form').querySelector('[name="id_persona"]');
+            const idPersona = idPersonaInput ? idPersonaInput.value : '';
             const cedulaInput = correoInput.closest('form').querySelector('[name="cedula"]');
             const cedula = cedulaInput ? cedulaInput.value : '';
 
@@ -144,7 +149,9 @@
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: 'correo=' + encodeURIComponent(correo) + '&cedula_ignorada=' + encodeURIComponent(cedula)
+                    body: 'correo=' + encodeURIComponent(correo)
+                        + '&id_persona_ignorada=' + encodeURIComponent(idPersona)
+                        + '&cedula_ignorada=' + encodeURIComponent(cedula)
                 })
                 .then(response => response.json())
                 .then(data => {

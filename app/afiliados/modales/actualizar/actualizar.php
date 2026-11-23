@@ -1,7 +1,10 @@
 <?php
-session_start(); // Asegúrate de iniciar la sesión
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 
 require 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
+include 'C:/xampp/htdocs/IPSPUPTM/config/persona_helper.php';
 include 'C:/xampp/htdocs/IPSPUPTM/app/configuracion/bitacora/bitacora.php';
 
 header('Content-Type: application/json'); // Indica que la respuesta será en formato JSON
@@ -12,20 +15,91 @@ if (isset($_POST['cedula'], $_POST['nombre'], $_POST['apellido'],
           $_POST['telefono'], $_POST['correo'], $_POST['ocupacion'])) {
 
     // Limpia los datos para prevenir inyección SQL
-    $cedula = htmlspecialchars($_POST['cedula']);
+    $cedula = trim((string) $_POST['cedula']);
+    $cedula_original = isset($_POST['cedula_original']) ? trim((string) $_POST['cedula_original']) : '';
+    $id_persona_post = isset($_POST['id_persona']) ? (int) $_POST['id_persona'] : 0;
     $nombre = htmlspecialchars($_POST['nombre']);
     $apellido = htmlspecialchars($_POST['apellido']);
-    $fechanacimiento = htmlspecialchars($_POST['fechanacimiento']);
+    $fechanacimiento = trim((string) $_POST['fechanacimiento']);
     $genero = htmlspecialchars($_POST['genero']);
+    $estado_civil = htmlspecialchars($_POST['estado_civil'] ?? '');
     $telefono = htmlspecialchars($_POST['telefono']);
     $correo = htmlspecialchars($_POST['correo']);
     $ocupacion = htmlspecialchars($_POST['ocupacion']);
 
+    // La cédula es visible para el usuario, pero debe tener formato válido.
+    if (!preg_match('/^[0-9]{1,8}$/', $cedula)) {
+        echo json_encode(['success' => false, 'message' => 'Error: la cédula debe contener solo números (máximo 8).']);
+        exit();
+    }
+
+    $estados_civiles = ['Soltero(a)', 'Casado(a)', 'Concubino(a)', 'Divorciado(a)', 'Viudo(a)'];
+    if (!in_array($estado_civil, $estados_civiles, true)) {
+        echo json_encode(['success' => false, 'message' => 'Error: debe seleccionar un estado civil válido.']);
+        exit();
+    }
+
+    // Regla de negocio: un afiliado debe tener al menos 20 años cumplidos.
+    $fecha_minima = date('Y-m-d', strtotime('-20 years'));
+    $fecha_obj = DateTime::createFromFormat('Y-m-d', $fechanacimiento);
+    if (!$fecha_obj || $fecha_obj->format('Y-m-d') !== $fechanacimiento) {
+        echo json_encode(['success' => false, 'message' => 'Error: la fecha de nacimiento no es válida.']);
+        exit();
+    }
+    if ($fechanacimiento > $fecha_minima) {
+        echo json_encode(['success' => false, 'message' => 'Error: el afiliado debe tener al menos 20 años cumplidos.']);
+        exit();
+    }
+
+    $transaccion_iniciada = false;
+
     try {
-        // Verificar si el correo ya existe para OTRA persona
-        $sql_check_correo = "SELECT cedula FROM persona WHERE correo = ? AND cedula != ?";
+        // Identificar la persona por su id interno; la cédula original sirve de respaldo.
+        $id_persona = $id_persona_post > 0
+            ? $id_persona_post
+            : buscarIdPersonaPorCedula($conn, $cedula_original !== '' ? $cedula_original : $cedula);
+
+        if ($id_persona === null) {
+            $mensaje = ($id_persona_post <= 0 && $cedula_original === '')
+                ? 'No se pudo identificar al afiliado: faltan datos del formulario. Recargue la página con Ctrl+F5 e intente de nuevo.'
+                : 'Error: la persona no existe.';
+            echo json_encode(['success' => false, 'message' => $mensaje]);
+            exit();
+        }
+
+        // Confirmar que la persona existe y obtener su cédula actual.
+        $stmt_persona_actual = $conn->prepare("SELECT cedula FROM persona WHERE id_persona = ?");
+        $stmt_persona_actual->bind_param("i", $id_persona);
+        $stmt_persona_actual->execute();
+        $res_persona_actual = $stmt_persona_actual->get_result();
+        $persona_actual = $res_persona_actual ? $res_persona_actual->fetch_assoc() : null;
+        $stmt_persona_actual->close();
+
+        if (!$persona_actual) {
+            echo json_encode(['success' => false, 'message' => 'Error: la persona no existe.']);
+            exit();
+        }
+        $cedula_actual = (string) $persona_actual['cedula'];
+
+        // Si la cédula cambió, verificar que no pertenezca a otra persona.
+        if ((int) $cedula !== (int) $cedula_actual) {
+            $sql_check_cedula = "SELECT id_persona FROM persona WHERE cedula = ? AND id_persona != ?";
+            $stmt_check_cedula = $conn->prepare($sql_check_cedula);
+            $stmt_check_cedula->bind_param("si", $cedula, $id_persona);
+            $stmt_check_cedula->execute();
+            $res_check_cedula = $stmt_check_cedula->get_result();
+
+            if ($res_check_cedula->num_rows > 0) {
+                echo json_encode(['success' => false, 'message' => 'Error: la cédula ingresada ya está registrada por otra persona.']);
+                exit();
+            }
+            $stmt_check_cedula->close();
+        }
+
+        // Verificar si el correo ya existe para OTRA persona (por id interno)
+        $sql_check_correo = "SELECT id_persona FROM persona WHERE correo = ? AND id_persona != ?";
         $stmt_check_correo = $conn->prepare($sql_check_correo);
-        $stmt_check_correo->bind_param("ss", $correo, $cedula);
+        $stmt_check_correo->bind_param("si", $correo, $id_persona);
         $stmt_check_correo->execute();
         $res_check_correo = $stmt_check_correo->get_result();
 
@@ -37,34 +111,38 @@ if (isset($_POST['cedula'], $_POST['nombre'], $_POST['apellido'],
 
         // Inicia una transacción
         $conn->begin_transaction();
+        $transaccion_iniciada = true;
 
-        // Actualizar datos en la tabla persona
+        // Actualizar datos en la tabla persona (incluida la cédula)
         $sql_persona = "UPDATE persona
-                            SET nombre = ?, apellido = ?, fechanacimiento = ?,
-                            genero = ?, telefono = ?, correo = ?, ocupacion = ?
-                            WHERE cedula = ?";
+                            SET cedula = ?, nombre = ?, apellido = ?, fechanacimiento = ?,
+                            genero = ?, estado_civil = ?, telefono = ?, correo = ?, ocupacion = ?
+                            WHERE id_persona = ?";
 
         $stmt_persona = $conn->prepare($sql_persona);
 
         if ($stmt_persona) {
-            $stmt_persona->bind_param("ssssssss", $nombre, $apellido, $fechanacimiento, $genero, $telefono, $correo, $ocupacion, $cedula);
+            $stmt_persona->bind_param("sssssssssi", $cedula, $nombre, $apellido, $fechanacimiento, $genero, $estado_civil, $telefono, $correo, $ocupacion, $id_persona);
 
             if ($stmt_persona->execute()) {
                 // Ahora actualiza la tabla afiliados (si fuera necesario)
                 $sql_afiliados = "UPDATE afiliados
                                     SET updated_at = NOW()
-                                    WHERE cedula = ?";
+                                    WHERE id_persona = ?";
 
                 $stmt_afiliados = $conn->prepare($sql_afiliados);
 
                 if ($stmt_afiliados) {
-                    $stmt_afiliados->bind_param("s", $cedula);
+                    $stmt_afiliados->bind_param("i", $id_persona);
 
                     if ($stmt_afiliados->execute()) {
                         // Registrar en bitácora
                         $usuario = $_SESSION['username'] ?? 'Sistema';
                         $accion = "Edición de Afiliado";
                         $descripcion = "Se han actualizado los datos del afiliado con cédula: $cedula, Nombre: $nombre, Apellido: $apellido";
+                        if ((int) $cedula !== (int) $cedula_actual) {
+                            $descripcion = "Se cambió la cédula del afiliado de $cedula_actual a $cedula. Nombre: $nombre, Apellido: $apellido";
+                        }
                         registrarEnBitacora($conn, $usuario, $accion, $descripcion);
 
                         $conn->commit();
@@ -91,7 +169,9 @@ if (isset($_POST['cedula'], $_POST['nombre'], $_POST['apellido'],
         }
 
     } catch (Exception $e) {
-        $conn->rollback();
+        if ($transaccion_iniciada) {
+            $conn->rollback();
+        }
         echo json_encode(['success' => false, 'message' => 'Ocurrió un error: ' . $e->getMessage()]);
     }
 } else {

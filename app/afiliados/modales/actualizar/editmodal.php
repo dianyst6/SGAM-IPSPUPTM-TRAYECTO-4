@@ -10,6 +10,8 @@
       <div class="modal-body">
         <form action="/IPSPUPTM/app/afiliados/modales/actualizar/actualizar.php" method="post">
           <input type="hidden" name="id" id="id">
+          <input type="hidden" name="id_persona" id="id_persona">
+          <input type="hidden" name="cedula_original" id="cedula_original">
 
           <!-- Contenedor para los campos -->
           <div class="container">
@@ -17,7 +19,10 @@
             <div class="row mb-3">
               <div class="col-md-6 col-12">
                 <label for="cedula" class="form-label">Cédula</label>
-                <input type="text" id="cedula" class="form-control" readonly name="cedula" maxlength="8">
+                <input type="text" id="cedula" class="form-control" name="cedula" maxlength="8"
+                  pattern="[0-9]{1,8}" title="Solo se permiten hasta 8 números" required>
+                <div id="cedulaFeedback" class="text-danger mt-1" style="display:none; font-size: 0.875em;">
+                  La cédula debe contener solo números (máximo 8).</div>
               </div>
               <div class="col-md-6 col-12">
                 <label for="nombre" class="form-label">Nombre</label>
@@ -34,16 +39,32 @@
               <div class="col-md-6 col-12">
                 <label for="fechanacimiento" class="form-label">Fecha de Nacimiento</label>
                 <input type="date" name="fechanacimiento" id="fechanacimiento" class="form-control" required
-                  min="<?php echo date('Y-m-d', strtotime('-110 years')); ?>" max="<?php echo date('Y-m-d'); ?>">
+                  min="<?php echo date('Y-m-d', strtotime('-110 years')); ?>" max="<?php echo date('Y-m-d', strtotime('-20 years')); ?>">
+                <div class="form-text">El afiliado debe tener al menos 20 años cumplidos.</div>
               </div>
             </div>
 
-            <!-- Tercer grupo: Género y Teléfono -->
+            <!-- Tercer grupo: Género y Estado Civil -->
             <div class="row mb-3">
               <div class="col-md-6 col-12">
                 <label for="genero" class="form-label">Género</label>
                 <input type="text" id="genero" class="form-control" readonly name="genero">
               </div>
+              <div class="col-md-6 col-12">
+                <label for="estado_civil" class="form-label">Estado Civil</label>
+                <select name="estado_civil" id="estado_civil" class="form-select" required>
+                  <option value="">Seleccionar...</option>
+                  <option value="Soltero(a)">Soltero(a)</option>
+                  <option value="Casado(a)">Casado(a)</option>
+                  <option value="Concubino(a)">Concubino(a)</option>
+                  <option value="Divorciado(a)">Divorciado(a)</option>
+                  <option value="Viudo(a)">Viudo(a)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Cuarto grupo: Teléfono y Correo -->
+            <div class="row mb-3">
               <div class="col-md-6 col-12">
                 <label for="telefono" class="form-label">Teléfono</label>
                 <input type="text" name="telefono" id="telefono" maxlength="11" class="form-control"
@@ -52,11 +73,7 @@
                 <div id="telefonoFeedback" class="text-danger mt-1" style="display:none; font-size: 0.875em;">
                   El teléfono debe comenzar con 04 y tener exactamente 11 dígitos.</div>
               </div>
-            </div>
-
-            <!-- Cuarto grupo: Correo -->
-            <div class="row mb-3">
-              <div class="col-12">
+              <div class="col-md-6 col-12">
                 <label for="correo" class="form-label">Correo Electrónico</label>
                 <input type="email" name="correo" id="correo" class="form-control" required>
                 <div id="correoFeedback" class="text-danger mt-1" style="display:none; font-size: 0.875em;">
@@ -66,7 +83,7 @@
 
             <!-- Quinto grupo: Ocupación -->
             <div class="row mb-3">
-              <div class="col-12">
+              <div class="col-md-6 col-12">
                 <label for="ocupacion" class="form-label">Ocupación</label>
                 <input type="text" name="ocupacion" id="ocupacion" class="form-control" required>
               </div>
@@ -87,6 +104,12 @@
 <script>
   document.body.addEventListener('input', function (event) {
     if (!event.target) return;
+
+    // La cédula solo admite números (máx 8)
+    if (event.target.id === 'cedula' && event.target.closest('#editmodal')) {
+      let input = event.target;
+      input.value = input.value.replace(/\D/g, '').slice(0, 8);
+    }
 
     // Validación y sanitización del campo teléfono en editmodal (solo números, máx 11, debe comenzar con 04)
     if (event.target.id === 'telefono') {
@@ -114,8 +137,8 @@
       let correo = correoInput.value.trim();
       const feedback = correoInput.parentNode.querySelector('#correoFeedback');
       const btnGuardar = correoInput.closest('form').querySelector('button[type="submit"]');
-      const cedulaInput = correoInput.closest('form').querySelector('[name="cedula"]');
-      const cedula = cedulaInput ? cedulaInput.value : '';
+      const personaInput = correoInput.closest('form').querySelector('[name="id_persona"]');
+      const idPersona = personaInput ? personaInput.value : '';
 
       if (correo.length > 0) {
         fetch('/IPSPUPTM/app/configuracion/check_correo.php', {
@@ -123,7 +146,7 @@
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: 'correo=' + encodeURIComponent(correo) + '&cedula_ignorada=' + encodeURIComponent(cedula)
+          body: 'correo=' + encodeURIComponent(correo) + '&id_persona_ignorada=' + encodeURIComponent(idPersona)
         })
           .then(response => response.json())
           .then(data => {

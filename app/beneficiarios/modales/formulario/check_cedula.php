@@ -1,24 +1,36 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
 
 header('Content-Type: application/json');
 
 if (isset($_POST['cedula'])) {
-    $cedula = mysqli_real_escape_string($conn, $_POST['cedula']);
-    $query_beneficiario = "SELECT COUNT(*) as count FROM beneficiarios WHERE cedula = '$cedula'";
-    $result_beneficiario = mysqli_query($conn, $query_beneficiario);
+    $cedula = trim((string) $_POST['cedula']);
+
     $count_beneficiario = 0;
-    if ($result_beneficiario) {
-        $row = mysqli_fetch_assoc($result_beneficiario);
-        $count_beneficiario = $row['count'];
+    $stmt_beneficiario = $conn->prepare("SELECT COUNT(*) AS count FROM beneficiarios b JOIN persona p ON p.id_persona = b.id_persona WHERE p.cedula = ?");
+    if ($stmt_beneficiario) {
+        $stmt_beneficiario->bind_param("s", $cedula);
+        $stmt_beneficiario->execute();
+        $result_beneficiario = $stmt_beneficiario->get_result();
+        if ($result_beneficiario && ($row = $result_beneficiario->fetch_assoc())) {
+            $count_beneficiario = (int) $row['count'];
+        }
+        $stmt_beneficiario->close();
     }
 
-    $query_afiliado = "SELECT COUNT(*) as count FROM afiliados WHERE cedula = '$cedula'";
-    $result_afiliado = mysqli_query($conn, $query_afiliado);
     $count_afiliado = 0;
-    if ($result_afiliado) {
-        $row = mysqli_fetch_assoc($result_afiliado);
-        $count_afiliado = $row['count'];
+    $stmt_afiliado = $conn->prepare("SELECT COUNT(*) AS count FROM afiliados a JOIN persona p ON p.id_persona = a.id_persona WHERE p.cedula = ?");
+    if ($stmt_afiliado) {
+        $stmt_afiliado->bind_param("s", $cedula);
+        $stmt_afiliado->execute();
+        $result_afiliado = $stmt_afiliado->get_result();
+        if ($result_afiliado && ($row = $result_afiliado->fetch_assoc())) {
+            $count_afiliado = (int) $row['count'];
+        }
+        $stmt_afiliado->close();
     }
 
     echo json_encode([

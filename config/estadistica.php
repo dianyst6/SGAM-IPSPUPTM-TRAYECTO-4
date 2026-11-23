@@ -70,24 +70,34 @@ if ($result_citas_mes_fijo->num_rows > 0) {
 // Limpieza de código heredado
 
 
-// Consultar el total de citas_uptm del periodo seleccionado (Solo Activas)
-$sql_citas_uptm = "SELECT COUNT(*) AS total FROM citas_uptm r INNER JOIN citas c ON r.idcita = c.id_cita $where_activa";
+// Citas del periodo por tipo de paciente.
+// El tipo se deduce por JOIN: afiliado, beneficiario o comunidad UPTM (persona sin rol).
+$sql_citas_uptm = "SELECT COUNT(DISTINCT c.id_cita) AS total
+                   FROM citas c
+                   INNER JOIN persona p ON p.id_persona = c.id_persona
+                   LEFT JOIN afiliados a     ON a.id_persona = p.id_persona
+                   LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona
+                   $where_activa AND a.id_persona IS NULL AND b.id_persona IS NULL";
 $result_citas_uptm = $conn->query($sql_citas_uptm);
 if ($result_citas_uptm->num_rows > 0) {
     $row = $result_citas_uptm->fetch_assoc();
     $total_citas_uptm = $row['total'];
 }
 
-// Consultar el total de citas_afil del periodo seleccionado (Solo Activas)
-$sql_citas_afil = "SELECT COUNT(*) AS total FROM citas_afil r INNER JOIN citas c ON r.idcita = c.id_cita $where_activa";
+$sql_citas_afil = "SELECT COUNT(DISTINCT c.id_cita) AS total
+                   FROM citas c
+                   INNER JOIN afiliados a ON a.id_persona = c.id_persona
+                   $where_activa";
 $result_citas_afil = $conn->query($sql_citas_afil);
 if ($result_citas_afil->num_rows > 0) {
     $row = $result_citas_afil->fetch_assoc();
     $total_citas_afil = $row['total'];
 }
 
-// Consultar el total de citas_benef del periodo seleccionado (Solo Activas)
-$sql_citas_benef = "SELECT COUNT(*) AS total FROM citas_benef r INNER JOIN citas c ON r.idcita = c.id_cita $where_activa";
+$sql_citas_benef = "SELECT COUNT(DISTINCT c.id_cita) AS total
+                    FROM citas c
+                    INNER JOIN beneficiarios b ON b.id_persona = c.id_persona
+                    $where_activa";
 $result_citas_benef = $conn->query($sql_citas_benef);
 if ($result_citas_benef->num_rows > 0) {
     $row = $result_citas_benef->fetch_assoc();
@@ -130,21 +140,25 @@ if ($result_especialidades && $result_especialidades->num_rows > 0) {
 // --- NUEVO: Estadísticas para la torta de distribución absoluta de personas ---
 
 // 1. Cantidad de afiliados con contrato activo
-$sql_afiliados_activos = "SELECT COUNT(*) AS total FROM afiliados a WHERE EXISTS (SELECT 1 FROM contrato_plan cp WHERE cp.ID_afiliado_contrato = a.cedula AND cp.estado_contrato = 'Activo')";
+$sql_afiliados_activos = "SELECT COUNT(*) AS total FROM afiliados a WHERE EXISTS (SELECT 1 FROM contrato_plan cp WHERE cp.id_persona = a.id_persona AND cp.estado_contrato = 'Activo')";
 $result_afiliados_activos = $conn->query($sql_afiliados_activos);
 if ($result_afiliados_activos && $result_afiliados_activos->num_rows > 0) {
     $total_afiliados_activos = $result_afiliados_activos->fetch_assoc()['total'];
 }
 
 // 2. Cantidad de beneficiarios con contrato activo (titular con contrato activo)
-$sql_beneficiarios_activos = "SELECT COUNT(*) AS total FROM beneficiarios b JOIN afiliados a ON b.cedula_afil = a.ID WHERE EXISTS (SELECT 1 FROM contrato_plan cp WHERE cp.ID_afiliado_contrato = a.cedula AND cp.estado_contrato = 'Activo')";
+$sql_beneficiarios_activos = "SELECT COUNT(*) AS total FROM beneficiarios b JOIN afiliados a ON b.id_afiliado = a.ID WHERE EXISTS (SELECT 1 FROM contrato_plan cp WHERE cp.id_persona = a.id_persona AND cp.estado_contrato = 'Activo')";
 $result_beneficiarios_activos = $conn->query($sql_beneficiarios_activos);
 if ($result_beneficiarios_activos && $result_beneficiarios_activos->num_rows > 0) {
     $total_beneficiarios_activos = $result_beneficiarios_activos->fetch_assoc()['total'];
 }
 
 // 3. Cantidad de personas de la comunidad UPTM
-$sql_comunidad_uptm = "SELECT COUNT(*) AS total FROM comunidad_uptm";
+$sql_comunidad_uptm = "SELECT COUNT(*) AS total
+                       FROM persona p
+                       LEFT JOIN afiliados a     ON a.id_persona = p.id_persona
+                       LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona
+                       WHERE a.id_persona IS NULL AND b.id_persona IS NULL";
 $result_comunidad_uptm = $conn->query($sql_comunidad_uptm);
 if ($result_comunidad_uptm && $result_comunidad_uptm->num_rows > 0) {
     $total_comunidad_uptm = $result_comunidad_uptm->fetch_assoc()['total'];

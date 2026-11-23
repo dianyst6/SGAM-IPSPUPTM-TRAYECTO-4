@@ -1,4 +1,7 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 ob_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
@@ -50,7 +53,7 @@ class PDF_Afiliados extends FPDF {
 // Consulta
 $sql = "SELECT p.cedula, p.nombre, p.apellido, p.fechanacimiento, p.genero,
                p.telefono, p.correo, p.ocupacion, a.created_at
-        FROM afiliados a JOIN persona p ON a.cedula = p.cedula";
+        FROM afiliados a JOIN persona p ON a.id_persona = p.id_persona";
 $resultado = $conn->query($sql);
 
 if (ob_get_length()) ob_end_clean();

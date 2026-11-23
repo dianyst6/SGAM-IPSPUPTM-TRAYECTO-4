@@ -30,7 +30,7 @@ try {
 
     // Auto-detectar tipo real de paciente interno
     if ($tipo_paciente === 'interno') {
-        $chk = $conn->prepare("SELECT cedula FROM afiliados WHERE cedula = ?");
+        $chk = $conn->prepare("SELECT p.id_persona FROM afiliados a JOIN persona p ON p.id_persona = a.id_persona WHERE p.cedula = ?");
         $chk->bind_param("i", $ci_paciente);
         $chk->execute();
         $tipo_paciente = ($chk->get_result()->num_rows > 0) ? 'afiliado' : 'beneficiario';

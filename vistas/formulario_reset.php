@@ -4,7 +4,6 @@
             <div class="card shadow p-4">
                 <h2>Restablecer Contraseña</h2>
                 <form action="/IPSPUPTM/vistas/actualizar_contrasena.php" method="POST">
-                    <input type="hidden" name="user_id" value="<?php echo $user_id; ?>">
                     <div class="mb-3">
                         <label class="form-label">Nueva Contraseña</label>
                         <div class="input-group">

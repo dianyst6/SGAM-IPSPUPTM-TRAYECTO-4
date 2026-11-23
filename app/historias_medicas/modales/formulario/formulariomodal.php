@@ -29,11 +29,17 @@
               <select name="ci_paciente" id="ci_paciente_hidden" class="form-select" style="width: 100%;">
                 <option value="" selected disabled>Buscar por CI o Nombre...</option>
                 <?php
-                // Consulta a la tabla 'persona'
-                $sql = "SELECT cedula, fechanacimiento, CONCAT(nombre, ' ', apellido) as nombre_completo FROM persona";
+                // Solo afiliados y beneficiarios (la comunidad va en el selector externo)
+                $sql = "SELECT p.cedula, p.fechanacimiento,
+                               CONCAT(p.nombre, ' ', p.apellido) AS nombre_completo
+                        FROM persona p
+                        LEFT JOIN afiliados a     ON a.id_persona = p.id_persona
+                        LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona
+                        WHERE a.id_persona IS NOT NULL OR b.id_persona IS NOT NULL
+                        ORDER BY p.nombre ASC";
                 $res = $conn->query($sql);
                 while ($r = $res->fetch_assoc()) {
-                  echo '<option value="' . $r['cedula'] . '" data-fecha="' . $r['fechanacimiento'] . '">' . $r['cedula'] . ' | ' . $r['nombre_completo'] . '</option>';
+                  echo '<option value="' . $r['cedula'] . '" data-fecha="' . $r['fechanacimiento'] . '">' . $r['cedula'] . ' | ' . htmlspecialchars($r['nombre_completo']) . '</option>';
                 }
                 ?>
               </select>
@@ -47,8 +53,13 @@
                 <select name="cedula_ext" id="cedula_ext" class="form-select" style="width: 100%;">
                   <option value="" selected disabled>Busque o ingrese Cédula...</option>
                   <?php
-                  // Consulta a la tabla 'comunidad_uptm'
-                  $sql_ext = "SELECT cedula, CONCAT(nombre, ' ', apellido) as nombre_completo FROM comunidad_uptm";
+                  // Comunidad UPTM: personas sin rol de afiliado ni beneficiario
+                  $sql_ext = "SELECT p.cedula, CONCAT(p.nombre, ' ', p.apellido) as nombre_completo
+            FROM persona p
+            LEFT JOIN afiliados a     ON a.id_persona = p.id_persona
+            LEFT JOIN beneficiarios b ON b.id_persona = p.id_persona
+            WHERE a.id_persona IS NULL AND b.id_persona IS NULL
+            ORDER BY p.nombre ASC";
                   $res_ext = $conn->query($sql_ext);
                   while ($r_ext = $res_ext->fetch_assoc()) {
                     echo '<option value="' . $r_ext['cedula'] . '" data-nombre="' . $r_ext['nombre_completo'] . '">' . $r_ext['cedula'] . ' | ' . $r_ext['nombre_completo'] . '</option>';

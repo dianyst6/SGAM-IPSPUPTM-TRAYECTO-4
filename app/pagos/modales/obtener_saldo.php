@@ -1,79 +1,87 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
+include 'C:/xampp/htdocs/IPSPUPTM/config/plan_helper.php';
 
-if (isset($_POST['id_contrato'])) {
-    $id = $_POST['id_contrato'];
+header('Content-Type: application/json; charset=utf-8');
 
-    // 1. Obtener el monto total del contrato y sus fechas
-    $sql_total = "SELECT monto_total, fecha_inicio, fecha_fin FROM contrato_plan WHERE ID_contrato = '$id'";
-    $res_total = mysqli_query($conn, $sql_total);
-    $data_total = mysqli_fetch_assoc($res_total);
-    $monto_total = $data_total['monto_total'] ?? 0;
-    $fecha_inicio = $data_total['fecha_inicio'] ?? date('Y-m-d');
-    $fecha_fin = $data_total['fecha_fin'] ?? date('Y-m-d');
-
-    // 2. Calcular el 30% requerido como pago inicial
-    $monto_inicial_requerido = $monto_total * 0.30;
-
-    // 3. Sumar todos los pagos con tipo_pago = 'Pago Inicial'
-    $sql_inicial = "SELECT COALESCE(SUM(monto_cuota), 0) as total_inicial 
-                    FROM pagos_contrato 
-                    WHERE ID_contrato = '$id' AND tipo_pago = 'Pago Inicial'";
-    $res_inicial = mysqli_query($conn, $sql_inicial);
-    $data_inicial = mysqli_fetch_assoc($res_inicial);
-    $total_pagado_inicial = $data_inicial['total_inicial'];
-
-    // 4. ¿Ya se completó el pago inicial?
-    $pago_inicial_completo = ($total_pagado_inicial >= $monto_inicial_requerido);
-
-    // 5. Saldo del pago inicial pendiente
-    $saldo_inicial_pendiente = max(0, $monto_inicial_requerido - $total_pagado_inicial);
-
-    // 6. Obtener la suma de cuotas normales y la última cuota registrada
-    $sql_pagos = "SELECT COALESCE(SUM(monto_cuota), 0) as total_pagado, 
-                         COALESCE(MAX(numero_cuota), 0) as ultima_cuota 
-                  FROM pagos_contrato 
-                  WHERE ID_contrato = '$id' AND tipo_pago = 'Cuota'";
-    $res_pagos = mysqli_query($conn, $sql_pagos);
-    $data_pagos = mysqli_fetch_assoc($res_pagos);
-    
-    $total_pagado_cuotas = $data_pagos['total_pagado'];
-    $ultima_cuota = $data_pagos['ultima_cuota'];
-
-    // 7. Saldo total pendiente (monto_total - todo lo pagado)
-    $saldo_pendiente = $monto_total - $total_pagado_inicial - $total_pagado_cuotas;
-    $siguiente_cuota = $ultima_cuota + 1;
-
-    // 8. Calcular meses y cuota fija (a partir de 3 meses después del inicio del contrato)
-    $date_start_grace = new DateTime($fecha_inicio);
-    $date_start_grace->modify('+3 months');
-    $date_end = new DateTime($fecha_fin);
-
-    if ($date_start_grace >= $date_end) {
-        $total_meses = 1; // Fallback por seguridad
-    } else {
-        $interval = $date_start_grace->diff($date_end);
-        $total_meses = ($interval->y * 12) + $interval->m;
-        if ($total_meses <= 0) $total_meses = 1;
-    }
-    
-    $monto_restante_base = $monto_total - $monto_inicial_requerido;
-    $cuota_fija = 0;
-    if ($total_meses > 0) {
-        $cuota_fija = $monto_restante_base / $total_meses;
-    }
-
-    // 9. Devolvemos toda la info como JSON
-    echo json_encode([
-        'saldo'                   => number_format($saldo_pendiente, 2, '.', ''),
-        'proxima_cuota'           => $siguiente_cuota,
-        'pago_inicial_requerido'  => number_format($monto_inicial_requerido, 2, '.', ''),
-        'pago_inicial_pagado'     => number_format($total_pagado_inicial, 2, '.', ''),
-        'pago_inicial_pendiente'  => number_format($saldo_inicial_pendiente, 2, '.', ''),
-        'pago_inicial_completo'   => $pago_inicial_completo,
-        'total_meses'             => $total_meses,
-        'cuota_fija'              => number_format($cuota_fija, 2, '.', ''),
-        'ultima_cuota'            => $ultima_cuota
-    ]);
+$idContrato = isset($_POST['id_contrato']) ? (int) $_POST['id_contrato'] : 0;
+if ($idContrato <= 0) {
+    echo json_encode(['success' => false, 'error' => 'Contrato no especificado.']);
+    exit;
 }
-?>
+
+$stmt = $conn->prepare(
+    "SELECT cp.*, per.nombre, per.apellido, per.cedula, pl.nombre_plan
+     FROM contrato_plan cp
+     INNER JOIN persona per ON per.id_persona = cp.id_persona
+     INNER JOIN planes pl ON pl.ID_planes = cp.ID_planes_contrato
+     WHERE cp.ID_contrato = ? LIMIT 1"
+);
+$stmt->bind_param('i', $idContrato);
+$stmt->execute();
+$contrato = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+if (!$contrato) {
+    echo json_encode(['success' => false, 'error' => 'El contrato no existe.']);
+    exit;
+}
+
+$resumen = contratoResumen($conn, $contrato);
+$pendientes = contratoCuotasPendientes($conn, $idContrato);
+
+$cuotasPendientes = [];
+$saldoCuotas = 0.0;
+foreach ($pendientes as $cuota) {
+    $saldo = round((float) $cuota['monto'] - (float) $cuota['monto_pagado'], 2);
+    $saldoCuotas += $saldo;
+    $cuotasPendientes[] = [
+        'id_cuota' => (int) $cuota['id_cuota'],
+        'numero' => (int) $cuota['numero_cuota'],
+        'fecha_vencimiento' => $cuota['fecha_vencimiento'],
+        'monto' => round((float) $cuota['monto'], 2),
+        'saldo' => $saldo,
+        'vencida' => $cuota['fecha_vencimiento'] < planHoy(),
+    ];
+}
+$saldoCuotas = round($saldoCuotas, 2);
+
+$saldoTotal = round($resumen['saldo_inicial'] + $saldoCuotas, 2);
+$tasaRespaldo = isset($_POST['tasa_bcv']) ? (float) $_POST['tasa_bcv'] : 0.0;
+$tasaBcv = planObtenerTasaBCV($tasaRespaldo);
+
+echo json_encode([
+    'success' => true,
+    'contrato' => [
+        'id' => (int) $contrato['ID_contrato'],
+        'anio' => (int) ($contrato['anio'] ?? 0),
+        'plan' => $contrato['nombre_plan'],
+        'estado' => $contrato['estado_contrato'],
+        'fecha_inicio' => $contrato['fecha_inicio'],
+        'fecha_fin' => $contrato['fecha_fin'],
+        'titular' => trim($contrato['nombre'] . ' ' . $contrato['apellido']),
+        'cedula' => $contrato['cedula'],
+    ],
+    'monto_total' => $resumen['monto_total'],
+    'saldo' => $saldoTotal,
+    'saldo_cuotas' => $saldoCuotas,
+    'inicial_requerido' => $resumen['monto_inicial'],
+    'inicial_pagado' => $resumen['inicial_pagado'],
+    'inicial_pendiente' => $resumen['saldo_inicial'],
+    'inicial_completo' => $resumen['inicial_completo'],
+    'cuotas_pendientes' => $cuotasPendientes,
+    'cuotas_pagadas' => $resumen['cuotas_pagadas'],
+    'cuotas_total' => $resumen['cuotas_total'],
+    'cuotas_vencidas' => $resumen['cuotas_vencidas'],
+    'deuda_vencida' => $resumen['deuda_vencida'],
+    'en_mora' => $resumen['en_mora'],
+    'cobertura_activa' => $resumen['cobertura_activa'],
+    'motivo' => $resumen['motivo'],
+    'cobertura' => $resumen['cobertura'],
+    'consumido' => $resumen['consumido'],
+    'disponible' => $resumen['disponible'],
+    'tasa_bcv' => $tasaBcv,
+]);

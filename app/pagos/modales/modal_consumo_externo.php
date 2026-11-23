@@ -83,8 +83,16 @@ document.getElementById('btn_buscar_afiliado_externo').addEventListener('click',
     .then(r => r.json())
     .then(data => {
         if (data.success) {
+            if (!data.afiliado.cobertura_activa) {
+                alertify.error("Sin cobertura activa: " + data.afiliado.motivo);
+                document.getElementById('info_afiliado_externo').style.display = "none";
+                document.getElementById('contenedor_consumo_ext').style.display = "none";
+                return;
+            }
+
             document.getElementById('nombre_afiliado_ext').textContent = data.afiliado.nombre + " (" + data.afiliado.tipo + ")";
-            document.getElementById('plan_afiliado_ext').textContent = "Plan: " + data.afiliado.plan;
+            document.getElementById('plan_afiliado_ext').textContent = "Plan: " + data.afiliado.plan
+                + " | Disponible: $" + parseFloat(data.afiliado.saldo_disponible).toFixed(2);
             document.getElementById('id_contrato_ext').value = data.afiliado.id_contrato;
             document.getElementById('id_persona_ext').value = data.afiliado.id_persona;
             document.getElementById('info_afiliado_externo').style.display = "block";

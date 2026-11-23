@@ -1,6 +1,9 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 // 1. Iniciar sesión y limpiar cualquier salida previa
-session_start();
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 ob_start(); 
 
 // 2. Cabecera JSON

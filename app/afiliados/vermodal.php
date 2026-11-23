@@ -28,6 +28,10 @@
                 <input type="text" id="genero" class="form-control" readonly>
             </div>
             <div class="col-md-6 mt-3">
+                <label for="estado_civil" class="form-label">Estado Civil</label>
+                <input type="text" id="estado_civil" class="form-control" readonly>
+            </div>
+            <div class="col-md-6 mt-3">
                 <label for="telefono" class="form-label">Teléfono</label>
                 <input type="text" id="telefono" class="form-control" readonly>
             </div>

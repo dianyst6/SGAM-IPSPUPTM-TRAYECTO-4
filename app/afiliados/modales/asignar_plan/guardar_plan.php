@@ -1,68 +1,99 @@
 <?php
-session_start();
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 
 require 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
+include 'C:/xampp/htdocs/IPSPUPTM/config/persona_helper.php';
+include 'C:/xampp/htdocs/IPSPUPTM/config/plan_helper.php';
 include 'C:/xampp/htdocs/IPSPUPTM/app/configuracion/bitacora/bitacora.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['cedula'], $_POST['id_planes_contrato'], $_POST['fecha_inicio'])) {
-        $cedula = htmlspecialchars($_POST['cedula']);
-        $id_plan = $_POST['id_planes_contrato'];
-        $monto_total = $_POST['monto_total'];
-        $fecha_inicio = $_POST['fecha_inicio'];
-        $fecha_fin = $_POST['fecha_fin'];
-        $frecuencia = $_POST['frecuencia_pago'];
-        $dia_pago = $_POST['dia_pago_mensual'];
-        $estado_contrato = $_POST['estado_contrato'];
-
-        $conn->begin_transaction();
-
-        try {
-            // Verificar que el afiliado existe
-            $stmt = $conn->prepare("SELECT cedula FROM afiliados WHERE cedula = ?");
-            $stmt->bind_param("s", $cedula);
-            $stmt->execute();
-            if ($stmt->get_result()->num_rows === 0) {
-                throw new Exception("El afiliado no existe.");
-            }
-            $stmt->close();
-
-            // Si se está activando un plan, desactivar los anteriores para evitar conflictos.
-            if ($estado_contrato === 'Activo') {
-                $stmt_upd = $conn->prepare("UPDATE contrato_plan SET estado_contrato = 'Inactivo' WHERE ID_afiliado_contrato = ? AND estado_contrato = 'Activo'");
-                $stmt_upd->bind_param("s", $cedula);
-                $stmt_upd->execute();
-                $stmt_upd->close();
-            }
-
-            // Insertar el nuevo contrato
-            $sql_contrato = "INSERT INTO contrato_plan (ID_planes_contrato, ID_afiliado_contrato, fecha_inicio, fecha_fin, monto_total, frecuencia_pago, dia_pago_mensual, estado_contrato) 
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            $stmt_c = $conn->prepare($sql_contrato);
-            $stmt_c->bind_param("isssdsss", $id_plan, $cedula, $fecha_inicio, $fecha_fin, $monto_total, $frecuencia, $dia_pago, $estado_contrato);
-            $stmt_c->execute();
-            $stmt_c->close();
-
-            $conn->commit();
-
-            $usuario_log = $_SESSION['username'] ?? 'Sistema';
-            registrarEnBitacora($conn, $usuario_log, "Asignación de Plan", "Nuevo plan ($id_plan) asignado al afiliado: $cedula");
-
-            $_SESSION['flash_msg'] = "Nuevo plan de salud asignado exitosamente.";
-            $_SESSION['flash_type'] = "success";
-
-            header("Location: /IPSPUPTM/home.php?vista=afiliados");
-            exit();
-
-        } catch (Exception $e) {
-            $conn->rollback();
-            $_SESSION['flash_msg'] = $e->getMessage();
-            $_SESSION['flash_type'] = "danger";
-            header("Location: /IPSPUPTM/home.php?vista=afiliados");
-            exit();
-        }
-    } else {
+    if (!isset($_POST['cedula'], $_POST['id_planes_contrato'])) {
         echo "Faltan datos requeridos en el formulario.";
+        exit();
+    }
+
+    $cedula = trim((string) $_POST['cedula']);
+    $idPlan = (int) $_POST['id_planes_contrato'];
+    $diaPago = isset($_POST['dia_pago_mensual']) ? (int) $_POST['dia_pago_mensual'] : PLAN_DIA_PAGO_DEFECTO;
+    $esAdmin = ((int) ($_SESSION['role_id'] ?? 0)) === 1;
+    $fechaInscripcion = planHoy();
+    $fueraDePeriodo = !planPeriodoInscripcionAbierto($fechaInscripcion);
+
+    $conn->begin_transaction();
+
+    try {
+        if (!preg_match('/^[0-9]{1,8}$/', $cedula)) {
+            throw new Exception('La cédula debe contener solo números (máximo 8).');
+        }
+
+        if ($fueraDePeriodo && $esAdmin && empty($_POST['autorizar_excepcion'])) {
+            throw new Exception(
+                'La inscripción está fuera del periodo (' . planPeriodoInscripcionTexto()
+                . '). Debe confirmar la autorización excepcional.'
+            );
+        }
+
+        // La cédula es la entrada; se resuelve el id_persona interno.
+        $idPersona = buscarIdPersonaPorCedula($conn, $cedula);
+        if ($idPersona === null) {
+            throw new Exception('El afiliado no existe.');
+        }
+
+        $stmt = $conn->prepare("SELECT id_persona FROM afiliados WHERE id_persona = ?");
+        $stmt->bind_param("i", $idPersona);
+        $stmt->execute();
+        if ($stmt->get_result()->num_rows === 0) {
+            $stmt->close();
+            throw new Exception('El afiliado no existe.');
+        }
+        $stmt->close();
+
+        $resultado = contratoCrearAnual(
+            $conn,
+            $idPersona,
+            $idPlan,
+            $diaPago,
+            $esAdmin,
+            $fechaInscripcion
+        );
+
+        $conn->commit();
+
+        $contrato = $resultado['contrato'];
+        $resumen = $resultado['resumen'];
+        $cuotas = $resumen['cuotas'];
+        $montoCuota = $cuotas ? (float) $cuotas[0]['monto'] : 0.0;
+
+        $usuario_log = $_SESSION['username'] ?? 'Sistema';
+        $detalleExcepcion = $fueraDePeriodo ? ' (inscripción excepcional autorizada)' : '';
+        registrarEnBitacora(
+            $conn,
+            $usuario_log,
+            "Asignación de Plan",
+            "Contrato {$contrato['anio']} creado para cédula $cedula. Inicial: $"
+            . number_format($resumen['monto_inicial'], 2)
+            . ", cuota: $" . number_format($montoCuota, 2)
+            . " x " . count($cuotas) . $detalleExcepcion
+        );
+
+        $_SESSION['flash_msg'] = "Contrato {$contrato['anio']} creado. Pago inicial del 30 %: $"
+            . number_format($resumen['monto_inicial'], 2)
+            . ". Cuota mensual: $" . number_format($montoCuota, 2)
+            . " (" . count($cuotas) . " cuotas). El afiliado queda como "
+            . "\"Pago inicial pendiente\" hasta que registre ese monto.";
+        $_SESSION['flash_type'] = "success";
+
+        header("Location: /IPSPUPTM/home.php?vista=afiliados&filtro=todos");
+        exit();
+
+    } catch (Exception $e) {
+        $conn->rollback();
+        $_SESSION['flash_msg'] = $e->getMessage();
+        $_SESSION['flash_type'] = "danger";
+        header("Location: /IPSPUPTM/home.php?vista=afiliados&filtro=todos");
+        exit();
     }
 } else {
     echo "Método de solicitud no válido.";

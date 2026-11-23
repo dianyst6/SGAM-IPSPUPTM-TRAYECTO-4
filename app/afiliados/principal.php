@@ -1,15 +1,33 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
 include 'C:/xampp/htdocs/IPSPUPTM/config/alertify.php';
+include 'C:/xampp/htdocs/IPSPUPTM/config/plan_helper.php';
 
-
+$hoy = planHoy();
 $filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'activos';
+$periodo_abierto = planPeriodoInscripcionAbierto();
+$es_admin = ((int) ($_SESSION['role_id'] ?? 0)) === 1;
+
+// Un contrato "vigente" para el listado es el que no está inactivo y aún no
+// ha vencido: incluye los que están pendientes de pago inicial y los que
+// empiezan en el próximo año.
+$condicionContratoVigente = "EXISTS (
+    SELECT 1 FROM contrato_plan cp
+    WHERE cp.id_persona = a.id_persona
+      AND cp.estado_contrato NOT IN ('Inactivo', 'Vencido')
+      AND cp.fecha_fin >= '$hoy'
+)";
 
 $whereClause = "";
 if ($filtro === 'activos') {
-    $whereClause = "WHERE EXISTS (SELECT 1 FROM contrato_plan cp WHERE cp.ID_afiliado_contrato = a.cedula AND cp.estado_contrato = 'Activo')";
+    $whereClause = "WHERE $condicionContratoVigente";
 } elseif ($filtro === 'inactivos') {
-    $whereClause = "WHERE NOT EXISTS (SELECT 1 FROM contrato_plan cp WHERE cp.ID_afiliado_contrato = a.cedula AND cp.estado_contrato = 'Activo')";
+    $whereClause = "WHERE NOT $condicionContratoVigente";
+} else {
+    $filtro = 'todos';
 }
 
 $rowsPerPage = 15; // Número de registros por página
@@ -19,14 +37,15 @@ $offset = ($currentPage - 1) * $rowsPerPage;
 // Consulta para obtener datos de afiliados junto con información de personas
 $sqlAfiliados = "
     SELECT 
+        p.id_persona,
         p.cedula, 
         p.nombre, 
         p.apellido, 
         a.created_at, 
         a.updated_at,
-        EXISTS (SELECT 1 FROM contrato_plan cp WHERE cp.ID_afiliado_contrato = a.cedula AND cp.estado_contrato = 'Activo') as tiene_activo
+        $condicionContratoVigente as tiene_contrato_vigente
     FROM afiliados a
-    JOIN persona p ON a.cedula = p.cedula
+    JOIN persona p ON a.id_persona = p.id_persona
     $whereClause
     LIMIT $offset, $rowsPerPage
 ";
@@ -47,15 +66,29 @@ $totalPages = ceil($totalRows / $rowsPerPage);
         <div class="row mt-4 align-items-center">
             <div class="col-auto">
                 <!-- Botón Agregar Afiliado alineado a la izquierda -->
-                <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#formulariomodal">
-                    <i class="fas fa-plus-circle"></i> Agregar afiliado
-                </a>
+                <?php if ($periodo_abierto): ?>
+                    <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#formulariomodal">
+                        <i class="fas fa-plus-circle"></i> Agregar afiliado
+                    </a>
+                <?php elseif ($es_admin): ?>
+                    <button type="button" class="btn btn-warning text-dark" data-bs-toggle="modal"
+                        data-bs-target="#formulariomodal"
+                        title="Fuera del periodo de inscripción. Puede autorizar una inscripción excepcional.">
+                        <i class="fas fa-user-plus"></i> Agregar afiliado
+                        <span class="badge bg-dark ms-1">Excepción</span>
+                    </button>
+                <?php else: ?>
+                    <button type="button" class="btn btn-secondary" disabled
+                        title="Las inscripciones están cerradas. El periodo es del <?= htmlspecialchars(planPeriodoInscripcionTexto()) ?>.">
+                        <i class="fas fa-lock"></i> Agregar afiliado
+                    </button>
+                <?php endif; ?>
             </div>
             <div class="col text-end mt-2">
                 <!-- Select dinámico para filtrar por estado de póliza -->
                 <select id="filtro_estado" class="form-select w-auto d-inline-block me-2" onchange="let u = new URLSearchParams(window.location.search); u.set('filtro', this.value); u.delete('page'); window.location.search = u.toString();">
-                    <option value="activos" <?= ($filtro == 'activos') ? 'selected' : '' ?>>Con Contrato Activo</option>
-                    <option value="inactivos" <?= ($filtro == 'inactivos') ? 'selected' : '' ?>>Sin Contrato / Inactivos</option>    
+                    <option value="activos" <?= ($filtro == 'activos') ? 'selected' : '' ?>>Con Contrato Vigente</option>
+                    <option value="inactivos" <?= ($filtro == 'inactivos') ? 'selected' : '' ?>>Sin Contrato / Vencidos</option>    
                     <option value="todos" <?= ($filtro == 'todos') ? 'selected' : '' ?>>Todos los Afiliados</option>
                 </select>
                 <!-- Input de búsqueda alineado a la derecha -->
@@ -80,17 +113,20 @@ $totalPages = ceil($totalRows / $rowsPerPage);
                     </tr>
                 </thead>
                 <tbody>
-                    <?php while ($row = $afiliados->fetch_assoc()) { ?>
+                    <?php while ($row = $afiliados->fetch_assoc()) {
+                        $contrato_row = planContratoRelevante($conn, (int) $row['id_persona']);
+                        $resumen_row = $contrato_row ? contratoResumen($conn, $contrato_row) : null;
+                        [$estado_texto, $estado_clase] = planEstadoVisualContrato($contrato_row, $resumen_row);
+                    ?>
                         <tr>
                             <td><?php echo $row['cedula']; ?></td>
                             <td><?php echo $row['nombre']; ?></td>
                             <td><?php echo $row['apellido']; ?></td>
                             <td>
-                                <?php if ($row['tiene_activo']) { ?>
-                                    <span class="badge bg-success">Activo</span>
-                                <?php } else { ?>
-                                    <span class="badge bg-danger">Inactivo</span>
-                                <?php } ?>
+                                <span class="badge <?= $estado_clase ?>"
+                                    <?= $resumen_row ? 'title="' . htmlspecialchars($resumen_row['motivo']) . '"' : '' ?>>
+                                    <?= htmlspecialchars($estado_texto) ?>
+                                </span>
                             </td>
                             <td class="text-center">
                                 <!-- Botón Ver Información -->
@@ -104,10 +140,16 @@ $totalPages = ceil($totalRows / $rowsPerPage);
                                 </button>
                                 <!-- Botón Editar -->
                                 <a href="#" class="btn btn-warning btn-sm" data-bs-toggle="modal"
-                                    data-bs-target="#editmodal" data-bs-cedula="<?= $row['cedula']; ?>">
+                                    data-bs-target="#editmodal" data-bs-cedula="<?= $row['cedula']; ?>"
+                                    data-bs-id-persona="<?= $row['id_persona']; ?>">
                                     <i class="fas fa-edit"></i>Editar
                                 </a>
-                                <?php if (!$row['tiene_activo']) { ?>
+                                <?php if ($row['tiene_contrato_vigente']) { ?>
+                                <!-- Botón Registrar pago del contrato existente -->
+                                <a href="/IPSPUPTM/home.php?vista=gestionpagoscontrato" class="btn btn-sm btn-success text-white" title="Registrar pago del contrato">
+                                    <i class="fas fa-money-bill-wave"></i> Registrar pago
+                                </a>
+                                <?php } else { ?>
                                 <!-- Botón Asignar Plan -->
                                 <button class="btn btn-sm btn-success text-white" title="Asignar Nuevo Plan" data-bs-toggle="modal" data-bs-target="#modalAsignarPlan" data-bs-cedula="<?= $row['cedula']; ?>">
                                     <i class="fas fa-file-signature"></i> Asignar Plan
@@ -144,7 +186,7 @@ $totalPages = ceil($totalRows / $rowsPerPage);
 <?php include 'C:/xampp/htdocs/IPSPUPTM/app/afiliados/modales/asignar_plan/modal_asignar.php'; ?>
 
 
-<script src="/IPSPUPTM/assets/js/accionesafiliados.js"></script>
+<script src="/IPSPUPTM/assets/js/accionesafiliados.js?v=20261111-2"></script>
 
 
 

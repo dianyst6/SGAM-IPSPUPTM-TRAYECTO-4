@@ -1,5 +1,7 @@
 <?php
-session_start(); // Asegúrate de iniciar la sesión
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 
 require 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
 include 'C:/xampp/htdocs/IPSPUPTM/app/configuracion/bitacora/bitacora.php';
@@ -7,7 +9,7 @@ include 'C:/xampp/htdocs/IPSPUPTM/app/configuracion/bitacora/bitacora.php';
 header('Content-Type: application/json');
 
 if (isset($_POST['cedula'])) {
-    $cedula = htmlspecialchars($_POST['cedula']);
+    $cedula = trim((string) $_POST['cedula']);
 
     try {
         $conn->begin_transaction();
@@ -15,15 +17,27 @@ if (isset($_POST['cedula'])) {
         $eliminado_afiliado = false;
         $eliminado_persona = false;
 
-        // 1. Eliminar citas relacionadas al afiliado
-        $sql_eliminar_citas = "DELETE FROM citas 
-                               WHERE id_cita IN (SELECT id_cita 
-                                                FROM citas_afil 
-                                                WHERE id_afiliado = (SELECT ID FROM afiliados WHERE cedula = ?))";
+        // 0. Resolver la persona por cédula (la cédula vive en persona)
+        $sql_persona_id = "SELECT id_persona FROM persona WHERE cedula = ?";
+        $stmt_persona_id = $conn->prepare($sql_persona_id);
+        if (!$stmt_persona_id) {
+            throw new Exception("Error al preparar la consulta de la persona: " . $conn->error);
+        }
+        $stmt_persona_id->bind_param("s", $cedula);
+        $stmt_persona_id->execute();
+        $res_persona_id = $stmt_persona_id->get_result();
+        if ($res_persona_id->num_rows === 0) {
+            throw new Exception("El afiliado no existe o ya fue eliminado.");
+        }
+        $id_persona = (int) $res_persona_id->fetch_assoc()['id_persona'];
+        $stmt_persona_id->close();
+
+        // 1. Eliminar citas relacionadas al afiliado (la cita guarda id_persona)
+        $sql_eliminar_citas = "DELETE FROM citas WHERE id_persona = ?";
         $stmt_eliminar_citas = $conn->prepare($sql_eliminar_citas);
 
         if ($stmt_eliminar_citas) {
-            $stmt_eliminar_citas->bind_param("s", $cedula);
+            $stmt_eliminar_citas->bind_param("i", $id_persona);
             if (!$stmt_eliminar_citas->execute()) {
                 throw new Exception("Error al eliminar las citas relacionadas: " . $stmt_eliminar_citas->error);
             }
@@ -32,29 +46,15 @@ if (isset($_POST['cedula'])) {
             throw new Exception("Error al preparar la consulta para eliminar citas: " . $conn->error);
         }
 
-        // 2. Eliminar de citas_afil
-        $sql_eliminar_citas_afil = "DELETE FROM citas_afil 
-                                     WHERE id_afiliado = (SELECT ID FROM afiliados WHERE cedula = ?)";
-        $stmt_eliminar_citas_afil = $conn->prepare($sql_eliminar_citas_afil);
-        if ($stmt_eliminar_citas_afil) {
-            $stmt_eliminar_citas_afil->bind_param("s", $cedula);
-            if (!$stmt_eliminar_citas_afil->execute()) {
-                throw new Exception("Error al eliminar de citas_afil: " . $stmt_eliminar_citas_afil->error);
-            }
-            $stmt_eliminar_citas_afil->close();
-        } else {
-            throw new Exception("Error al preparar la consulta para eliminar de citas_afil: " . $conn->error);
-        }
-
         // 3. Obtener información del afiliado para la bitácora
         $sql_info_afiliado = "SELECT p.nombre, p.apellido
                                 FROM afiliados a
-                                JOIN persona p ON a.cedula = p.cedula
-                                WHERE a.cedula = ?";
+                                JOIN persona p ON a.id_persona = p.id_persona
+                                WHERE a.id_persona = ?";
         $stmt_info_afiliado = $conn->prepare($sql_info_afiliado);
 
         if ($stmt_info_afiliado) {
-            $stmt_info_afiliado->bind_param("s", $cedula);
+            $stmt_info_afiliado->bind_param("i", $id_persona);
             $stmt_info_afiliado->execute();
             $result_info_afiliado = $stmt_info_afiliado->get_result();
 
@@ -69,11 +69,11 @@ if (isset($_POST['cedula'])) {
         }
 
         // 4. Eliminar de afiliados
-        $sql_afiliados = "DELETE FROM afiliados WHERE cedula = ?";
+        $sql_afiliados = "DELETE FROM afiliados WHERE id_persona = ?";
         $stmt_afiliados = $conn->prepare($sql_afiliados);
 
         if ($stmt_afiliados) {
-            $stmt_afiliados->bind_param("s", $cedula);
+            $stmt_afiliados->bind_param("i", $id_persona);
             $eliminado_afiliado = $stmt_afiliados->execute();
             $stmt_afiliados->close();
         } else {
@@ -81,21 +81,21 @@ if (isset($_POST['cedula'])) {
         }
 
         // 5. Verificar si quedan relaciones en afiliados
-        $sql_check_afiliados = "SELECT cedula FROM afiliados WHERE cedula = ?";
+        $sql_check_afiliados = "SELECT id_persona FROM afiliados WHERE id_persona = ?";
         $stmt_check = $conn->prepare($sql_check_afiliados);
 
         if ($stmt_check) {
-            $stmt_check->bind_param("s", $cedula);
+            $stmt_check->bind_param("i", $id_persona);
             $stmt_check->execute();
             $result_check = $stmt_check->get_result();
 
             if ($result_check->num_rows === 0) {
                 // 6. No hay más relaciones en afiliados, elimina de persona
-                $sql_persona = "DELETE FROM persona WHERE cedula = ?";
+                $sql_persona = "DELETE FROM persona WHERE id_persona = ?";
                 $stmt_persona = $conn->prepare($sql_persona);
 
                 if ($stmt_persona) {
-                    $stmt_persona->bind_param("s", $cedula);
+                    $stmt_persona->bind_param("i", $id_persona);
                     $eliminado_persona = $stmt_persona->execute();
                     $stmt_persona->close();
                 } else {

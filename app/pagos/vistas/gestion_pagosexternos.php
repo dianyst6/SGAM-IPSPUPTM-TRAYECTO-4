@@ -9,17 +9,20 @@ $offset = ($currentPage - 1) * $rowsPerPage;
 // Detectar el filtro (Pendientes por defecto)
 $filtro = isset($_GET['estado']) ? $_GET['estado'] : 'pendientes';
 
+// Comunidad UPTM: persona sin fila en afiliados ni beneficiarios.
+$filtro_comunidad = "af_u.id_persona IS NULL AND be_u.id_persona IS NULL";
+
 // Construir la consulta según el filtro
 if ($filtro == 'pendientes') {
     // Solo los que NO están en la tabla de pagos y que no estén canceladas
-    $whereSQL = "WHERE p.id_pago_ext IS NULL AND c.estado != 'cancelada'";
+    $whereSQL = "WHERE p.id_pago_ext IS NULL AND c.estado != 'cancelada' AND $filtro_comunidad";
 } else {
     // Todos (Historial) - Excluimos las canceladas para limpieza del reporte
-    $whereSQL = "WHERE c.estado != 'cancelada'"; 
+    $whereSQL = "WHERE c.estado != 'cancelada' AND $filtro_comunidad"; 
 }
 
 // Consulta principal con JOINS
-// Ajusta 'comunidad_uptm' y 'citas_uptm' según tus nombres reales
+// Comunidad UPTM = persona sin rol (la cita guarda citas.id_persona)
 $sql = "SELECT c.id_cita, 
                CONCAT(u.nombre, ' ', u.apellido) AS nombre_paciente, 
                u.cedula, 
@@ -29,8 +32,9 @@ $sql = "SELECT c.id_cita,
                p.id_pago_ext,
                (SELECT SUM(ce.precio_historico) FROM citas_examenes ce WHERE ce.id_cita = c.id_cita) AS monto_cita
         FROM citas c
-        INNER JOIN citas_uptm h ON c.id_cita = h.idcita
-        INNER JOIN comunidad_uptm u ON h.id_externo = u.id
+        INNER JOIN persona u ON u.id_persona = c.id_persona
+        LEFT JOIN afiliados af_u     ON af_u.id_persona = u.id_persona
+        LEFT JOIN beneficiarios be_u ON be_u.id_persona = u.id_persona
         INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
         LEFT JOIN pagos_externos p ON c.id_cita = p.id_cita
         $whereSQL
@@ -40,7 +44,9 @@ $citas = $conn->query($sql);
 
 // Calcular total de páginas
 $totalQuery = "SELECT COUNT(*) as total FROM citas c 
-               INNER JOIN citas_uptm h ON c.id_cita = h.idcita
+               INNER JOIN persona u ON u.id_persona = c.id_persona
+               LEFT JOIN afiliados af_u     ON af_u.id_persona = u.id_persona
+               LEFT JOIN beneficiarios be_u ON be_u.id_persona = u.id_persona
                LEFT JOIN pagos_externos p ON c.id_cita = p.id_cita
                $whereSQL";
 $totalResult = $conn->query($totalQuery);

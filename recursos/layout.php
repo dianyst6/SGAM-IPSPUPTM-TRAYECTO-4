@@ -23,6 +23,25 @@
     <?php include 'C:/xampp/htdocs/IPSPUPTM/recursos/header.php' ?>
     <?php include 'C:/xampp/htdocs/IPSPUPTM/config/alertify.php' ?>
     <?php
+    // Mensaje flash de la última operación (alta, asignación, pago, error).
+    if (!empty($_SESSION['flash_msg'])) {
+        $flash_tipos = ['success', 'danger', 'warning', 'info', 'primary', 'secondary'];
+        $flash_tipo = in_array($_SESSION['flash_type'] ?? '', $flash_tipos, true)
+            ? $_SESSION['flash_type']
+            : 'info';
+        ?>
+        <div class="container-fluid px-3 pt-2">
+            <div class="alert alert-<?= htmlspecialchars($flash_tipo) ?> alert-dismissible fade show shadow-sm"
+                role="alert">
+                <?= htmlspecialchars($_SESSION['flash_msg']) ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+        </div>
+        <?php
+        unset($_SESSION['flash_msg'], $_SESSION['flash_type']);
+    }
+    ?>
+    <?php
     // Configuración de manuales dinámicos por sección
     $manuales_pdf = [
         'inicial' => 'manual_general.pdf',

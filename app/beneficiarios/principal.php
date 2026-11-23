@@ -1,24 +1,42 @@
 <?php
+// 1.3 Guard central: sesión válida + rol permitido
+require_once $_SERVER['DOCUMENT_ROOT'] . '/IPSPUPTM/config/auth_guard.php';
+auth_guard([1, 2]);
 include 'C:/xampp/htdocs/IPSPUPTM/config/database.php';
+include 'C:/xampp/htdocs/IPSPUPTM/config/plan_helper.php';
 
 $rowsPerPage = 15; // Número de registros por página
 $currentPage = isset($_GET['page']) ? intval($_GET['page']) : 1; // Página actual
 $offset = ($currentPage - 1) * $rowsPerPage;
 
+$hoy = planHoy();
 $filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'activos';
+
+// El beneficiario comparte el contrato del titular. Un contrato "vigente"
+// para el listado es el que no está inactivo ni vencido: incluye los que
+// están pendientes de pago inicial y los que empiezan el próximo año.
+$condicionContratoVigente = "EXISTS (
+    SELECT 1 FROM contrato_plan cp
+    WHERE cp.id_persona = a.id_persona
+      AND cp.estado_contrato NOT IN ('Inactivo', 'Vencido')
+      AND cp.fecha_fin >= '$hoy'
+)";
 
 $whereClause = "";
 if ($filtro === 'activos') {
-    $whereClause = "WHERE EXISTS (SELECT 1 FROM contrato_plan cp WHERE cp.ID_afiliado_contrato = a.cedula AND cp.estado_contrato = 'Activo')";
+    $whereClause = "WHERE $condicionContratoVigente";
 } elseif ($filtro === 'inactivos') {
-    $whereClause = "WHERE NOT EXISTS (SELECT 1 FROM contrato_plan cp WHERE cp.ID_afiliado_contrato = a.cedula AND cp.estado_contrato = 'Activo')";
+    $whereClause = "WHERE NOT $condicionContratoVigente";
+} else {
+    $filtro = 'todos';
 }
 
 try {
     // Consulta para obtener datos de beneficiarios junto con información de personas y afiliados
     $sqlBeneficiarios = "
         SELECT 
-            b.cedula, 
+            b.id_persona,
+            p_b.cedula, 
             p_b.nombre AS nombre_beneficiario, 
             p_b.apellido AS apellido_beneficiario, 
             b.parentesco,
@@ -26,11 +44,12 @@ try {
             CONCAT(p_a.nombre, ' ', p_a.apellido) AS nombre_afiliado, 
             b.created_at, 
             b.updated_at,
-            EXISTS (SELECT 1 FROM contrato_plan cp WHERE cp.ID_afiliado_contrato = a.cedula AND cp.estado_contrato = 'Activo') as tiene_activo
+            a.id_persona AS id_persona_titular,
+            $condicionContratoVigente as tiene_contrato_vigente
         FROM beneficiarios b
-        JOIN persona p_b ON b.cedula = p_b.cedula -- Datos del beneficiario
-        JOIN afiliados a ON b.cedula_afil = a.ID -- Relación entre beneficiarios y afiliados
-        JOIN persona p_a ON a.cedula = p_a.cedula -- Datos del afiliado
+        JOIN persona p_b ON b.id_persona = p_b.id_persona -- Datos del beneficiario
+        JOIN afiliados a ON b.id_afiliado = a.ID -- Relación entre beneficiarios y afiliados
+        JOIN persona p_a ON a.id_persona = p_a.id_persona -- Datos del afiliado
         $whereClause
         LIMIT $rowsPerPage OFFSET $offset
     ";
@@ -41,7 +60,7 @@ try {
         SELECT p_b.nombre, p_b.apellido, p_b.cedula, 
                TIMESTAMPDIFF(YEAR, p_b.fechanacimiento, CURDATE()) AS edad
         FROM beneficiarios b
-        JOIN persona p_b ON b.cedula = p_b.cedula
+        JOIN persona p_b ON b.id_persona = p_b.id_persona
         WHERE b.parentesco = 'Hijo' 
         AND TIMESTAMPDIFF(YEAR, p_b.fechanacimiento, CURDATE()) >= 25
     ";
@@ -53,7 +72,7 @@ try {
     }
 
     // Obtener el total de filas para calcular páginas
-    $totalRowsResult = $conn->query("SELECT COUNT(*) AS total FROM beneficiarios b JOIN afiliados a ON b.cedula_afil = a.ID $whereClause");
+    $totalRowsResult = $conn->query("SELECT COUNT(*) AS total FROM beneficiarios b JOIN afiliados a ON b.id_afiliado = a.ID $whereClause");
     if (!$totalRowsResult) {
         throw new Exception("Error en la consulta del total de beneficiarios: " . $conn->error);
     }
@@ -65,7 +84,7 @@ try {
     $sql_afiliados = "
         SELECT a.ID, CONCAT(p.nombre, ' ', p.apellido) AS nombre_afiliado 
         FROM afiliados a
-        JOIN persona p ON a.cedula = p.cedula
+        JOIN persona p ON a.id_persona = p.id_persona
         ORDER BY p.nombre ASC
     ";
     $result_afiliados = $conn->query($sql_afiliados);
@@ -110,8 +129,8 @@ try {
                 <div class="col text-end mt-2">
                     <!-- Select dinámico para filtrar por estado de póliza -->
                     <select id="filtro_estado" class="form-select w-auto d-inline-block me-2" onchange="let u = new URLSearchParams(window.location.search); u.set('filtro', this.value); u.delete('page'); window.location.search = u.toString();">
-                        <option value="activos" <?= ($filtro == 'activos') ? 'selected' : '' ?>>Titular Con Contrato Activo</option>
-                        <option value="inactivos" <?= ($filtro == 'inactivos') ? 'selected' : '' ?>>Titular Sin Contrato / Inactivo</option>    
+                        <option value="activos" <?= ($filtro == 'activos') ? 'selected' : '' ?>>Titular Con Contrato Vigente</option>
+                        <option value="inactivos" <?= ($filtro == 'inactivos') ? 'selected' : '' ?>>Titular Sin Contrato / Vencido</option>    
                         <option value="todos" <?= ($filtro == 'todos') ? 'selected' : '' ?>>Todos los Beneficiarios</option>
                     </select>
                     <!-- Input de búsqueda alineado a la derecha -->
@@ -139,6 +158,9 @@ try {
                         <?php while ($row = $beneficiarios->fetch_assoc()) { 
                             $edad = date_diff(date_create($row['fechanacimiento']), date_create('today'))->y;
                             $alertaEdad = ($row['parentesco'] == 'Hijo' && $edad >= 25);
+                            $contrato_titular = planContratoRelevante($conn, (int) $row['id_persona_titular']);
+                            $resumen_titular = $contrato_titular ? contratoResumen($conn, $contrato_titular) : null;
+                            [$estado_texto, $estado_clase] = planEstadoVisualContrato($contrato_titular, $resumen_titular);
                         ?>
                         <tr class="<?= $alertaEdad ? 'table-warning' : '' ?>">
                             <td><?php echo $row['cedula']; ?></td>
@@ -152,11 +174,10 @@ try {
                             </td>
                             <td><?php echo $row['nombre_afiliado']; ?></td> <!-- Nombre del afiliado relacionado -->
                             <td>
-                                <?php if ($row['tiene_activo']) { ?>
-                                    <span class="badge bg-success">Activo</span>
-                                <?php } else { ?>
-                                    <span class="badge bg-danger">Inactivo / Sin Plan</span>
-                                <?php } ?>
+                                <span class="badge <?= $estado_clase ?>"
+                                    <?= $resumen_titular ? 'title="' . htmlspecialchars($resumen_titular['motivo']) . '"' : '' ?>>
+                                    <?= htmlspecialchars($estado_texto) ?>
+                                </span>
                             </td>
                             <td class="text-center">
                                 <!-- Botón Ver Información -->
@@ -170,7 +191,8 @@ try {
                                 </button>
                                 <!-- Botón Editar -->
                                 <a href="#" class="btn btn-warning btn-sm" data-bs-toggle="modal"
-                                    data-bs-target="#editmodal" data-bs-cedula="<?= $row['cedula']; ?>">
+                                    data-bs-target="#editmodal" data-bs-cedula="<?= $row['cedula']; ?>"
+                                    data-bs-id-persona="<?= $row['id_persona']; ?>">
                                     <i class="fas fa-edit"></i>Editar
                                 </a>
                                 <!-- Botón Eliminar -->
@@ -208,4 +230,4 @@ try {
 <?php include 'C:/xampp/htdocs/IPSPUPTM/app/beneficiarios/vermodal.php'; ?>
 <?php include 'C:/xampp/htdocs/IPSPUPTM/app/beneficiarios/modales/modal_ver_consumo_benef.php'; ?>
 
-<script src="/IPSPUPTM/assets/js/accionesbeneficiarios.js"></script>
+<script src="/IPSPUPTM/assets/js/accionesbeneficiarios.js?v=<?= @filemtime('C:/xampp/htdocs/IPSPUPTM/assets/js/accionesbeneficiarios.js') ?: '20261112-2' ?>"></script>
