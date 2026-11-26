@@ -28,8 +28,11 @@ $sql = "SELECT c.id_cita,
                u.cedula, 
                e.nombre_especialidad, 
                c.fecha_cita,
+               p.monto_base,
                p.monto_final,
+               p.descuento_aplicado,
                p.id_pago_ext,
+               t.nombre_tipo,
                (SELECT SUM(ce.precio_historico) FROM citas_examenes ce WHERE ce.id_cita = c.id_cita) AS monto_cita
         FROM citas c
         INNER JOIN persona u ON u.id_persona = c.id_persona
@@ -37,6 +40,7 @@ $sql = "SELECT c.id_cita,
         LEFT JOIN beneficiarios be_u ON be_u.id_persona = u.id_persona
         INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
         LEFT JOIN pagos_externos p ON c.id_cita = p.id_cita
+        LEFT JOIN tipos_externos t ON t.id_tipos_ext = p.id_tipos_ext
         $whereSQL
         LIMIT $offset, $rowsPerPage";
 
@@ -103,6 +107,7 @@ $totalPages = ceil($totalRows / $rowsPerPage);
                     <tr>
                         <th>Paciente</th>
                         <th>Cédula</th>
+                        <th>Tipo / Descuento</th>
                         <th>Especialidad</th>
                         <th>Fecha Cita</th>
                         <th>Monto Final</th>
@@ -119,6 +124,14 @@ $totalPages = ceil($totalRows / $rowsPerPage);
                         <tr>
                             <td class="text-start ps-3"><?php echo htmlspecialchars($row['nombre_paciente']); ?></td>
                             <td><?php echo htmlspecialchars($row['cedula']); ?></td>
+                            <td>
+                                <?php if ($pagado): ?>
+                                    <?php echo htmlspecialchars($row['nombre_tipo'] ?? 'Sin categoría'); ?>
+                                    <small class="text-muted d-block"><?php echo number_format((float) $row['descuento_aplicado'], 0); ?>% desc.</small>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
                             <td><?php echo htmlspecialchars($row['nombre_especialidad']); ?></td>
                             <td><?php echo date('d-m-Y', strtotime($row['fecha_cita'])); ?></td>
                             
@@ -159,7 +172,7 @@ $totalPages = ceil($totalRows / $rowsPerPage);
                         <?php } ?>
                     <?php } else { ?>
                         <tr>
-                            <td colspan="7" class="py-4 text-center text-muted">No hay registros que coincidan con el filtro.</td>
+                            <td colspan="8" class="py-4 text-center text-muted">No hay registros que coincidan con el filtro.</td>
                         </tr>
                     <?php } ?>
                 </tbody>

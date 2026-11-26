@@ -16,20 +16,42 @@ include 'C:/xampp/htdocs/IPSPUPTM/app/configuracion/bitacora/bitacora.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $id_cita    = isset($_POST['id_cita_pago']) ? intval($_POST['id_cita_pago']) : 0;
+        $id_tipo    = isset($_POST['id_tipos_ext']) ? intval($_POST['id_tipos_ext']) : 0;
         $monto_base = isset($_POST['monto_base']) ? floatval($_POST['monto_base']) : 0;
-        $monto_fin  = isset($_POST['monto_pago']) ? floatval($_POST['monto_pago']) : 0;
+        $tasa_bcv   = isset($_POST['tasa_bcv']) ? floatval($_POST['tasa_bcv']) : 0;
         $metodo     = isset($_POST['metodo_pago']) ? htmlspecialchars($_POST['metodo_pago']) : '';
 
-        if ($id_cita === 0 || $monto_fin === 0) {
+        if ($id_cita === 0 || $monto_base <= 0) {
             throw new Exception("Datos de pago incompletos.");
         }
 
-        // INSERT actualizado con los nuevos campos
-        $sql = "INSERT INTO pagos_externos (id_cita, monto_base, monto_final, metodo_pago, fecha_pago) 
-                VALUES (?, ?, ?, ?, NOW())";
-        
+        if ($id_tipo === 0) {
+            throw new Exception("Debe seleccionar el tipo de comunidad.");
+        }
+
+        // La categoría y el descuento se leen de la base de datos:
+        // el monto final se calcula aquí y no se confía en el navegador.
+        $stmt_tipo = $conn->prepare("SELECT nombre_tipo, descuento FROM tipos_externos WHERE id_tipos_ext = ?");
+        $stmt_tipo->bind_param("i", $id_tipo);
+        $stmt_tipo->execute();
+        $res_tipo = $stmt_tipo->get_result();
+        $tipo = $res_tipo ? $res_tipo->fetch_assoc() : null;
+        $stmt_tipo->close();
+
+        if (!$tipo) {
+            throw new Exception("El tipo de comunidad seleccionado no existe.");
+        }
+
+        $descuento = (float) $tipo['descuento'];
+        $monto_fin = round($monto_base * (1 - ($descuento / 100)), 2);
+        $monto_bs  = round($monto_fin * $tasa_bcv, 2);
+
+        $sql = "INSERT INTO pagos_externos
+                    (id_cita, id_tipos_ext, monto_base, descuento_aplicado, monto_final, tasa_bcv, monto_bs, metodo_pago, fecha_pago)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("idds", $id_cita, $monto_base, $monto_fin, $metodo);
+        $stmt->bind_param("iiddddds", $id_cita, $id_tipo, $monto_base, $descuento, $monto_fin, $tasa_bcv, $monto_bs, $metodo);
 
         if ($stmt->execute()) {
             // ACTUALIZACIÓN: Cambiar el estado de la cita a 'Pagada'
@@ -39,10 +61,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt_upd->close();
 
             $usuario = $_SESSION['username'] ?? 'Sistema';
-            
-           
-            registrarenBitacora($conn, $usuario, "Pago Registrado", "Se procesó pago de cita #$id_cita por $monto_fin $.");
-            
+            $nombre_tipo = $tipo['nombre_tipo'];
+
+            registrarenBitacora($conn, $usuario, "Pago Registrado", "Se procesó pago de cita #$id_cita por $monto_fin $ (categoría: $nombre_tipo, descuento: $descuento%).");
+
             ob_clean(); // Borramos cualquier eco previo por si acaso
             echo json_encode(['success' => true, 'message' => "¡Pago procesado exitosamente!"]);
         } else {
